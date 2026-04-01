@@ -64,11 +64,97 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .status.error { color: #fca5a5; }
 
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
-th, td { border-bottom: 1px solid var(--border); padding: 8px; font-size: 13px; text-align: center; }
-th { background: var(--panel-2); }
-td.numeric { text-align: center; font-variant-numeric: tabular-nums; }
-tr.group-row td { background: rgba(51, 65, 85, 0.55); font-weight: 600; }
+.table-scroll {
+  max-height: min(70vh, 620px);
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1100px;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  font-size: 13px;
+  text-align: center;
+  background: var(--panel);
+}
+
+.data-table thead th {
+  background: var(--panel-2);
+}
+
+/* Sticky header rows (title + filter) */
+.data-table .sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--panel-2);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.data-table .sticky-filter {
+  position: sticky;
+  top: 40px;
+  z-index: 3;
+  background: #1e3a5f;
+  padding: 4px 6px;
+  vertical-align: middle;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.data-table thead tr.filter-row th {
+  font-weight: normal;
+}
+
+.filter-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 32px;
+  margin: 0;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.filter-text { text-align: left; }
+
+.filter-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.filter-num::-webkit-outer-spin-button,
+.filter-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.filter-num[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.data-table td.numeric {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tr.group-row td {
+  background: rgba(51, 65, 85, 0.55);
+  font-weight: 600;
+}
+
 .toggle-btn {
   width: 24px;
   height: 24px;

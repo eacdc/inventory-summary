@@ -42,16 +42,24 @@
         <p id="status" class="status"></p>
 
         <div id="itemwise-panel">
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap table-scroll">
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 54px;">View</th>
-                  <th>Item Group / Item</th>
-                  <th>Opening</th>
-                  <th>In</th>
-                  <th>Out</th>
-                  <th>Closing</th>
+                  <th class="sticky-header" style="width: 54px;">View</th>
+                  <th class="sticky-header">Item Group / Item</th>
+                  <th class="sticky-header">Opening</th>
+                  <th class="sticky-header">In</th>
+                  <th class="sticky-header">Out</th>
+                  <th class="sticky-header">Closing</th>
+                </tr>
+                <tr class="filter-row">
+                  <th class="sticky-filter"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-itemwise-label" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-opening" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-in" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-out" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-closing" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                 </tr>
               </thead>
               <tbody id="table-body">
@@ -64,16 +72,24 @@
         </div>
 
         <div id="clientwise-panel" class="hidden">
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap table-scroll">
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 54px;">View</th>
-                  <th>Client / Item</th>
-                  <th>Opening</th>
-                  <th>Receipt</th>
-                  <th>Issue</th>
-                  <th>Closing</th>
+                  <th class="sticky-header" style="width: 54px;">View</th>
+                  <th class="sticky-header">Client / Item</th>
+                  <th class="sticky-header">Opening</th>
+                  <th class="sticky-header">Receipt</th>
+                  <th class="sticky-header">Issue</th>
+                  <th class="sticky-header">Closing</th>
+                </tr>
+                <tr class="filter-row">
+                  <th class="sticky-filter"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-client-label" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-client-opening" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-client-receipt" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-client-issue" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-client-closing" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                 </tr>
               </thead>
               <tbody id="client-table-body">

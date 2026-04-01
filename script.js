@@ -15,7 +15,21 @@
     btnLoad: document.getElementById('btn-load'),
     status: document.getElementById('status'),
     tableBody: document.getElementById('table-body'),
-    clientTableBody: document.getElementById('client-table-body')
+    clientTableBody: document.getElementById('client-table-body'),
+    filterItemwise: {
+      label: document.getElementById('filter-itemwise-label'),
+      opening: document.getElementById('filter-itemwise-opening'),
+      in: document.getElementById('filter-itemwise-in'),
+      out: document.getElementById('filter-itemwise-out'),
+      closing: document.getElementById('filter-itemwise-closing')
+    },
+    filterClient: {
+      label: document.getElementById('filter-client-label'),
+      opening: document.getElementById('filter-client-opening'),
+      receipt: document.getElementById('filter-client-receipt'),
+      issue: document.getElementById('filter-client-issue'),
+      closing: document.getElementById('filter-client-closing')
+    }
   };
 
   let activeTab = 'itemwise';
@@ -62,6 +76,103 @@
     return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(Math.round(num(v)));
   }
 
+  /** Number column filter: empty = no filter; otherwise value must be >= entered minimum (integers). */
+  function numMinPass(value, filterRaw) {
+    const t = String(filterRaw ?? '').trim();
+    if (t === '') return true;
+    return Math.round(num(value)) >= Math.round(num(t));
+  }
+
+  function sumItemwiseItems(items) {
+    return items.reduce(
+      (acc, r) => ({
+        opening: acc.opening + num(r.openingKg),
+        inn: acc.inn + num(r.stockInKg),
+        out: acc.out + num(r.stockOutKg),
+        closing: acc.closing + num(r.closingKg)
+      }),
+      { opening: 0, inn: 0, out: 0, closing: 0 }
+    );
+  }
+
+  function sumClientItems(items) {
+    return items.reduce(
+      (acc, r) => ({
+        opening: acc.opening + num(r.openingStockKg),
+        receipt: acc.receipt + num(r.receiptKg),
+        issue: acc.issue + num(r.issueKg),
+        closing: acc.closing + num(r.closingStockKg)
+      }),
+      { opening: 0, receipt: 0, issue: 0, closing: 0 }
+    );
+  }
+
+  function getItemwiseFilterState() {
+    const fi = els.filterItemwise;
+    return {
+      label: String(fi.label?.value || '').trim().toLowerCase(),
+      opening: fi.opening?.value ?? '',
+      in: fi.in?.value ?? '',
+      out: fi.out?.value ?? '',
+      closing: fi.closing?.value ?? ''
+    };
+  }
+
+  function getClientFilterState() {
+    const fi = els.filterClient;
+    return {
+      label: String(fi.label?.value || '').trim().toLowerCase(),
+      opening: fi.opening?.value ?? '',
+      receipt: fi.receipt?.value ?? '',
+      issue: fi.issue?.value ?? '',
+      closing: fi.closing?.value ?? ''
+    };
+  }
+
+  function itemwiseItemMatches(r, g, f) {
+    const q = f.label;
+    if (q && !g.key.toLowerCase().includes(q) && !String(r.itemName || '').toLowerCase().includes(q)) {
+      return false;
+    }
+    return (
+      numMinPass(r.openingKg, f.opening) &&
+      numMinPass(r.stockInKg, f.in) &&
+      numMinPass(r.stockOutKg, f.out) &&
+      numMinPass(r.closingKg, f.closing)
+    );
+  }
+
+  function itemwiseTotalsPass(totals, f) {
+    return (
+      numMinPass(totals.opening, f.opening) &&
+      numMinPass(totals.inn, f.in) &&
+      numMinPass(totals.out, f.out) &&
+      numMinPass(totals.closing, f.closing)
+    );
+  }
+
+  function clientItemMatches(r, g, f) {
+    const q = f.label;
+    if (q && !g.key.toLowerCase().includes(q) && !String(r.itemName || '').toLowerCase().includes(q)) {
+      return false;
+    }
+    return (
+      numMinPass(r.openingStockKg, f.opening) &&
+      numMinPass(r.receiptKg, f.receipt) &&
+      numMinPass(r.issueKg, f.issue) &&
+      numMinPass(r.closingStockKg, f.closing)
+    );
+  }
+
+  function clientTotalsPass(totals, f) {
+    return (
+      numMinPass(totals.opening, f.opening) &&
+      numMinPass(totals.receipt, f.receipt) &&
+      numMinPass(totals.issue, f.issue) &&
+      numMinPass(totals.closing, f.closing)
+    );
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -97,22 +208,29 @@
       return;
     }
 
+    const f = getItemwiseFilterState();
     const grouped = groupRows(rows);
     let html = '';
+    let anyRow = false;
     grouped.forEach((g) => {
+      const visibleItems = g.items.filter((r) => itemwiseItemMatches(r, g, f));
+      if (visibleItems.length === 0) return;
+      const totals = sumItemwiseItems(visibleItems);
+      if (!itemwiseTotalsPass(totals, f)) return;
+      anyRow = true;
       const expanded = expandedGroups.has(g.key);
       html += `
         <tr class="group-row">
           <td><button type="button" class="toggle-btn" data-group="${escapeHtml(g.key)}">${expanded ? '−' : '+'}</button></td>
           <td>${escapeHtml(g.key)}</td>
-          <td class="numeric">${fmt(g.opening)}</td>
-          <td class="numeric">${fmt(g.in)}</td>
-          <td class="numeric">${fmt(g.out)}</td>
-          <td class="numeric">${fmt(g.closing)}</td>
+          <td class="numeric">${fmt(totals.opening)}</td>
+          <td class="numeric">${fmt(totals.inn)}</td>
+          <td class="numeric">${fmt(totals.out)}</td>
+          <td class="numeric">${fmt(totals.closing)}</td>
         </tr>
       `;
       if (expanded) {
-        g.items.forEach((r) => {
+        visibleItems.forEach((r) => {
           html += `
             <tr>
               <td></td>
@@ -126,6 +244,10 @@
         });
       }
     });
+    if (!anyRow) {
+      els.tableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
+      return;
+    }
     els.tableBody.innerHTML = html;
 
     els.tableBody.querySelectorAll('.toggle-btn').forEach((btn) => {
@@ -144,22 +266,29 @@
       els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
       return;
     }
+    const f = getClientFilterState();
     const grouped = groupClientRows(rows);
     let html = '';
+    let anyRow = false;
     grouped.forEach((g) => {
+      const visibleItems = g.items.filter((r) => clientItemMatches(r, g, f));
+      if (visibleItems.length === 0) return;
+      const totals = sumClientItems(visibleItems);
+      if (!clientTotalsPass(totals, f)) return;
+      anyRow = true;
       const expanded = expandedClientGroups.has(g.key);
       html += `
         <tr class="group-row">
           <td><button type="button" class="toggle-btn-client" data-client="${escapeHtml(g.key)}">${expanded ? '−' : '+'}</button></td>
           <td>${escapeHtml(g.key)}</td>
-          <td class="numeric">${fmt(g.opening)}</td>
-          <td class="numeric">${fmt(g.receipt)}</td>
-          <td class="numeric">${fmt(g.issue)}</td>
-          <td class="numeric">${fmt(g.closing)}</td>
+          <td class="numeric">${fmt(totals.opening)}</td>
+          <td class="numeric">${fmt(totals.receipt)}</td>
+          <td class="numeric">${fmt(totals.issue)}</td>
+          <td class="numeric">${fmt(totals.closing)}</td>
         </tr>
       `;
       if (expanded) {
-        g.items.forEach((r) => {
+        visibleItems.forEach((r) => {
           html += `
             <tr>
               <td></td>
@@ -173,6 +302,10 @@
         });
       }
     });
+    if (!anyRow) {
+      els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
+      return;
+    }
     els.clientTableBody.innerHTML = html;
 
     els.clientTableBody.querySelectorAll('.toggle-btn-client').forEach((btn) => {
@@ -183,6 +316,16 @@
         else expandedClientGroups.add(key);
         renderClientTable(currentClientRows);
       });
+    });
+  }
+
+  /** Exclude rows where Receipt, Issue, and Closing are all zero. */
+  function filterClientRowsWithMovement(rows) {
+    return rows.filter((r) => {
+      const receipt = num(r.receiptKg);
+      const issue = num(r.issueKg);
+      const closing = num(r.closingStockKg);
+      return !(receipt === 0 && issue === 0 && closing === 0);
     });
   }
 
@@ -200,14 +343,13 @@
       g.issue += num(r.issueKg);
       g.closing += num(r.closingStockKg);
     });
-    const grouped = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+    const grouped = Array.from(map.values()).sort((a, b) => {
+      const byClosing = num(b.closing) - num(a.closing);
+      if (byClosing !== 0) return byClosing;
+      return a.key.localeCompare(b.key);
+    });
     grouped.forEach((g) => {
-      g.items.sort((a, b) => {
-        const aGroupId = Number(a.itemGroupId ?? a.itemgroupid ?? Number.MAX_SAFE_INTEGER);
-        const bGroupId = Number(b.itemGroupId ?? b.itemgroupid ?? Number.MAX_SAFE_INTEGER);
-        if (aGroupId !== bGroupId) return aGroupId - bGroupId;
-        return num(b.closingStockKg) - num(a.closingStockKg);
-      });
+      g.items.sort((a, b) => num(b.closingStockKg) - num(a.closingStockKg));
     });
     return grouped;
   }
@@ -281,9 +423,10 @@
       if (!res.ok || data.status !== true) {
         throw new Error(data.error || `Request failed (${res.status})`);
       }
-      currentClientRows = Array.isArray(data.records) ? data.records : [];
+      const raw = Array.isArray(data.records) ? data.records : [];
+      currentClientRows = filterClientRowsWithMovement(raw);
       renderClientTable(currentClientRows);
-      setStatus(`Loaded ${currentClientRows.length} rows.`);
+      setStatus(`Loaded ${currentClientRows.length} row(s) after excluding zero movement.`);
     } catch (e) {
       currentClientRows = [];
       renderClientTable(currentClientRows);
@@ -309,7 +452,23 @@
     loadItemwise();
   });
 
+  function bindFilterInputs() {
+    const itemwiseInputs = Object.values(els.filterItemwise).filter(Boolean);
+    const clientInputs = Object.values(els.filterClient).filter(Boolean);
+    itemwiseInputs.forEach((el) => {
+      el.addEventListener('input', () => {
+        if (activeTab === 'itemwise') renderTable(currentRows);
+      });
+    });
+    clientInputs.forEach((el) => {
+      el.addEventListener('input', () => {
+        if (activeTab === 'clientwise') renderClientTable(currentClientRows);
+      });
+    });
+  }
+
   setDefaultDates();
+  bindFilterInputs();
   setTab('itemwise');
   loadItemwise();
 })();
