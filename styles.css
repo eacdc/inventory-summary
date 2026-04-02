@@ -175,5 +175,27 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   border: 1px solid var(--border);
   background: #0b1220;
 }
+
+.po-client-cell {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.po-client-edit-select {
+  width: 100%;
+  max-width: 100%;
+  height: 32px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: block;
+  text-align: center;
+}
+
+#po-noclient-panel .data-table {
+  table-layout: fixed;
+}
 .empty { text-align: center; color: var(--muted); padding: 18px 10px; }
 .hidden { display: none; }

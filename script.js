@@ -39,10 +39,7 @@
       client: document.getElementById('filter-po-client'),
       itemId: document.getElementById('filter-po-itemid'),
       itemName: document.getElementById('filter-po-itemname'),
-      poQty: document.getElementById('filter-po-poqty'),
-      purchaseUnit: document.getElementById('filter-po-pounit'),
-      purchaseRate: document.getElementById('filter-po-purchase-rate'),
-      gross: document.getElementById('filter-po-gross')
+      stockKg: document.getElementById('filter-po-stockkg')
     }
   };
 
@@ -349,10 +346,7 @@
       client: String(f.client?.value || '').trim().toLowerCase(),
       itemId: String(f.itemId?.value || '').trim().toLowerCase(),
       itemName: String(f.itemName?.value || '').trim().toLowerCase(),
-      poQty: f.poQty?.value ?? '',
-      purchaseUnit: String(f.purchaseUnit?.value || '').trim().toLowerCase(),
-      purchaseRate: f.purchaseRate?.value ?? '',
-      gross: f.gross?.value ?? ''
+      stockKg: f.stockKg?.value ?? ''
     };
   }
 
@@ -362,11 +356,8 @@
     const clientOk = !f.client || String(r.clientName || '').toLowerCase().includes(f.client);
     const itemIdOk = !f.itemId || String(r.itemId ?? '').toLowerCase().includes(f.itemId);
     const itemNameOk = !f.itemName || String(r.itemName || '').toLowerCase().includes(f.itemName);
-    const poQtyOk = numMinPass(r.purchaseOrderQuantity, f.poQty);
-    const unitOk = !f.purchaseUnit || String(r.purchaseUnit || '').toLowerCase().includes(f.purchaseUnit);
-    const purchaseRateOk = numMinPass(r.purchaseRate, f.purchaseRate);
-    const grossOk = numMinPass(r.grossAmount, f.gross);
-    return ponoOk && dateOk && clientOk && itemIdOk && itemNameOk && poQtyOk && unitOk && purchaseRateOk && grossOk;
+    const stockOk = numMinPass(r.stockKg, f.stockKg);
+    return ponoOk && dateOk && clientOk && itemIdOk && itemNameOk && stockOk;
   }
 
   function normalizeDateString(value) {
@@ -383,7 +374,7 @@
 
   function renderPoTable(rows) {
     if (!rows.length) {
-      els.poTableBody.innerHTML = '<tr><td colspan="9" class="empty">No records found.</td></tr>';
+      els.poTableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
       return;
     }
 
@@ -391,23 +382,136 @@
     const visible = rows.filter((r) => poRowMatches(r, f));
 
     if (!visible.length) {
-      els.poTableBody.innerHTML = '<tr><td colspan="9" class="empty">No rows match filters.</td></tr>';
+      els.poTableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
       return;
     }
 
-    els.poTableBody.innerHTML = visible.map((r) => `
+    els.poTableBody.innerHTML = visible.map((r) => {
+      const displayClient = (r.clientName && String(r.clientName).trim()) ? r.clientName : 'No Client';
+      const poDateNorm = normalizeDateString(r.poDate || '');
+      return `
       <tr>
         <td>${escapeHtml(r.pono || '')}</td>
         <td>${escapeHtml(normalizeDateString(r.poDate || ''))}</td>
-        <td>${escapeHtml(r.clientName || '')}</td>
+        <td
+          class="po-client-cell"
+          data-po-transaction-id="${escapeHtml(String(r.poTransactionId ?? ''))}"
+          data-item-id="${escapeHtml(String(r.itemId ?? ''))}"
+        >${escapeHtml(displayClient)}</td>
         <td>${escapeHtml(r.itemId ?? '')}</td>
         <td>${escapeHtml(r.itemName || '')}</td>
-        <td class="numeric">${fmt(r.purchaseOrderQuantity)}</td>
-        <td>${escapeHtml(r.purchaseUnit || '')}</td>
-        <td class="numeric">${fmt(r.purchaseRate)}</td>
-        <td class="numeric">${fmt(r.grossAmount)}</td>
+        <td class="numeric">${fmt(r.stockKg)}</td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
+  }
+
+  let clientOptionsCache = null;
+  let clientOptionsCacheDb = null;
+
+  async function loadClientOptionsForDatabase(databaseValue) {
+    const db = String(databaseValue || '').trim().toUpperCase();
+    if (!db) return [];
+    if (clientOptionsCache && clientOptionsCacheDb === db) return clientOptionsCache;
+
+    const url = new URL(`${API_BASE}/inventory-summary/client-names`);
+    url.searchParams.set('database', db);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status !== true) {
+      throw new Error(data.error || `Failed to fetch client names (${res.status})`);
+    }
+    clientOptionsCache = Array.isArray(data.clients) ? data.clients : [];
+    clientOptionsCacheDb = db;
+    return clientOptionsCache;
+  }
+
+  async function updatePoClientId(payload) {
+    const url = new URL(`${API_BASE}/inventory-summary/po-noclient-update-client`);
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status !== true) {
+      throw new Error(data.error || `Update failed (${res.status})`);
+    }
+    return data;
+  }
+
+  async function startPoClientEdit(td) {
+    if (!td || !td.dataset) return;
+    if (td.querySelector('select.po-client-edit-select')) return;
+
+    const oldText = td.textContent;
+    const db = els.database.value || 'KOL';
+
+    const clientOptions = await loadClientOptionsForDatabase(db);
+    if (!clientOptions.length) throw new Error('No clients found for dropdown.');
+
+    const poTransactionId = td.dataset.poTransactionId || td.dataset['po-transaction-id'] || '';
+    const itemId = td.dataset.itemId || td.dataset['item-id'] || '';
+
+    const select = document.createElement('select');
+    select.className = 'po-client-edit-select';
+    select.innerHTML = `<option value="">Select Client…</option>`;
+    clientOptions.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = String(c.ledgerId ?? '');
+      opt.textContent = String(c.ledgerName ?? '');
+      select.appendChild(opt);
+    });
+
+    td.textContent = '';
+    td.appendChild(select);
+    select.focus();
+
+    const revertToOldText = () => {
+      td.textContent = oldText;
+    };
+
+    select.addEventListener('change', async () => {
+      const newClientId = select.value;
+      if (!newClientId) {
+        revertToOldText();
+        return;
+      }
+
+      select.disabled = true;
+      setStatus('Updating PO client…');
+      try {
+        await updatePoClientId({
+          database: db,
+          poTransactionId: poTransactionId,
+          itemId: itemId,
+          newClientId
+        });
+        await loadPoNoClientTop200();
+      } catch (e) {
+        setStatus(String(e.message || e), true);
+        revertToOldText();
+      } finally {
+        select.disabled = false;
+      }
+    });
+
+    select.addEventListener('blur', () => {
+      if (!select.value) revertToOldText();
+    });
+  }
+
+  if (els.poTableBody) {
+    els.poTableBody.addEventListener('click', (e) => {
+      const td = e.target && e.target.closest ? e.target.closest('td.po-client-cell') : null;
+      if (!td) return;
+      startPoClientEdit(td).catch((err) => {
+        setStatus(String(err.message || err), true);
+      });
+    });
   }
 
   /** Exclude rows where Receipt, Issue, and Closing are all zero. */
