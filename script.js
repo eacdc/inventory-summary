@@ -7,8 +7,10 @@
   const els = {
     tabItemwise: document.getElementById('tab-itemwise'),
     tabClientwise: document.getElementById('tab-clientwise'),
+    tabPonoNoClient: document.getElementById('tab-pono-noclient'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
+    poPanel: document.getElementById('po-noclient-panel'),
     database: document.getElementById('database'),
     fromDate: document.getElementById('from-date'),
     toDate: document.getElementById('to-date'),
@@ -16,6 +18,7 @@
     status: document.getElementById('status'),
     tableBody: document.getElementById('table-body'),
     clientTableBody: document.getElementById('client-table-body'),
+    poTableBody: document.getElementById('po-table-body'),
     filterItemwise: {
       label: document.getElementById('filter-itemwise-label'),
       opening: document.getElementById('filter-itemwise-opening'),
@@ -29,12 +32,24 @@
       receipt: document.getElementById('filter-client-receipt'),
       issue: document.getElementById('filter-client-issue'),
       closing: document.getElementById('filter-client-closing')
+    },
+    filterPo: {
+      pono: document.getElementById('filter-po-pono'),
+      poDate: document.getElementById('filter-po-date'),
+      client: document.getElementById('filter-po-client'),
+      itemId: document.getElementById('filter-po-itemid'),
+      itemName: document.getElementById('filter-po-itemname'),
+      poQty: document.getElementById('filter-po-poqty'),
+      purchaseUnit: document.getElementById('filter-po-pounit'),
+      purchaseRate: document.getElementById('filter-po-purchase-rate'),
+      gross: document.getElementById('filter-po-gross')
     }
   };
 
   let activeTab = 'itemwise';
   let currentRows = [];
   let currentClientRows = [];
+  let currentPoRows = [];
   const expandedGroups = new Set();
   const expandedClientGroups = new Set();
 
@@ -60,11 +75,18 @@
 
   function setTab(which) {
     const isItemwise = which === 'itemwise';
-    activeTab = isItemwise ? 'itemwise' : 'clientwise';
-    els.tabItemwise.classList.toggle('active', isItemwise);
-    els.tabClientwise.classList.toggle('active', !isItemwise);
-    els.itemwisePanel.classList.toggle('hidden', !isItemwise);
-    els.clientwisePanel.classList.toggle('hidden', isItemwise);
+    const isClientwise = which === 'clientwise';
+    const isPo = which === 'po-noclient';
+
+    activeTab = isItemwise ? 'itemwise' : (isClientwise ? 'clientwise' : 'po-noclient');
+
+    if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
+    if (els.tabClientwise) els.tabClientwise.classList.toggle('active', isClientwise);
+    if (els.tabPonoNoClient) els.tabPonoNoClient.classList.toggle('active', isPo);
+
+    if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
+    if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
+    if (els.poPanel) els.poPanel.classList.toggle('hidden', !isPo);
   }
 
   function num(v) {
@@ -319,6 +341,75 @@
     });
   }
 
+  function getPoFilterState() {
+    const f = els.filterPo;
+    return {
+      pono: String(f.pono?.value || '').trim().toLowerCase(),
+      poDate: String(f.poDate?.value || '').trim().toLowerCase(),
+      client: String(f.client?.value || '').trim().toLowerCase(),
+      itemId: String(f.itemId?.value || '').trim().toLowerCase(),
+      itemName: String(f.itemName?.value || '').trim().toLowerCase(),
+      poQty: f.poQty?.value ?? '',
+      purchaseUnit: String(f.purchaseUnit?.value || '').trim().toLowerCase(),
+      purchaseRate: f.purchaseRate?.value ?? '',
+      gross: f.gross?.value ?? ''
+    };
+  }
+
+  function poRowMatches(r, f) {
+    const ponoOk = !f.pono || String(r.pono || '').toLowerCase().includes(f.pono);
+    const dateOk = !f.poDate || String(normalizeDateString(r.poDate || '')).toLowerCase().includes(f.poDate);
+    const clientOk = !f.client || String(r.clientName || '').toLowerCase().includes(f.client);
+    const itemIdOk = !f.itemId || String(r.itemId ?? '').toLowerCase().includes(f.itemId);
+    const itemNameOk = !f.itemName || String(r.itemName || '').toLowerCase().includes(f.itemName);
+    const poQtyOk = numMinPass(r.purchaseOrderQuantity, f.poQty);
+    const unitOk = !f.purchaseUnit || String(r.purchaseUnit || '').toLowerCase().includes(f.purchaseUnit);
+    const purchaseRateOk = numMinPass(r.purchaseRate, f.purchaseRate);
+    const grossOk = numMinPass(r.grossAmount, f.gross);
+    return ponoOk && dateOk && clientOk && itemIdOk && itemNameOk && poQtyOk && unitOk && purchaseRateOk && grossOk;
+  }
+
+  function normalizeDateString(value) {
+    const s = String(value == null ? '' : value).trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // If SQL returns datetime-like string, strip to date portion
+    if (s.includes('T')) return s.split('T')[0];
+    if (s.includes(' ')) return s.split(' ')[0];
+    const dt = new Date(s);
+    if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+    return s;
+  }
+
+  function renderPoTable(rows) {
+    if (!rows.length) {
+      els.poTableBody.innerHTML = '<tr><td colspan="9" class="empty">No records found.</td></tr>';
+      return;
+    }
+
+    const f = getPoFilterState();
+    const visible = rows.filter((r) => poRowMatches(r, f));
+
+    if (!visible.length) {
+      els.poTableBody.innerHTML = '<tr><td colspan="9" class="empty">No rows match filters.</td></tr>';
+      return;
+    }
+
+    els.poTableBody.innerHTML = visible.map((r) => `
+      <tr>
+        <td>${escapeHtml(r.pono || '')}</td>
+        <td>${escapeHtml(normalizeDateString(r.poDate || ''))}</td>
+        <td>${escapeHtml(r.clientName || '')}</td>
+        <td>${escapeHtml(r.itemId ?? '')}</td>
+        <td>${escapeHtml(r.itemName || '')}</td>
+        <td class="numeric">${fmt(r.purchaseOrderQuantity)}</td>
+        <td>${escapeHtml(r.purchaseUnit || '')}</td>
+        <td class="numeric">${fmt(r.purchaseRate)}</td>
+        <td class="numeric">${fmt(r.grossAmount)}</td>
+      </tr>
+    `).join('');
+  }
+
   /** Exclude rows where Receipt, Issue, and Closing are all zero. */
   function filterClientRowsWithMovement(rows) {
     return rows.filter((r) => {
@@ -436,6 +527,34 @@
     }
   }
 
+  async function loadPoNoClientTop200() {
+    setStatus('Loading...');
+    els.btnLoad.disabled = true;
+    try {
+      const url = new URL(`${API_BASE}/inventory-summary/po-no-client-top200`);
+      url.searchParams.set('database', els.database.value || 'KOL');
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+
+      currentPoRows = Array.isArray(data.records) ? data.records : [];
+      renderPoTable(currentPoRows);
+      setStatus(`Loaded ${currentPoRows.length} PO row(s).`);
+    } catch (e) {
+      currentPoRows = [];
+      renderPoTable(currentPoRows);
+      setStatus(e.message || 'Failed to load top 200 PO (no client).', true);
+    } finally {
+      els.btnLoad.disabled = false;
+    }
+  }
+
   els.tabItemwise.addEventListener('click', () => {
     setTab('itemwise');
     loadItemwise();
@@ -444,17 +563,22 @@
     setTab('clientwise');
     loadClientwise();
   });
+  if (els.tabPonoNoClient) {
+    els.tabPonoNoClient.addEventListener('click', () => {
+      setTab('po-noclient');
+      loadPoNoClientTop200();
+    });
+  }
   els.btnLoad.addEventListener('click', () => {
-    if (activeTab === 'clientwise') {
-      loadClientwise();
-      return;
-    }
-    loadItemwise();
+    if (activeTab === 'clientwise') return loadClientwise();
+    if (activeTab === 'po-noclient') return loadPoNoClientTop200();
+    return loadItemwise();
   });
 
   function bindFilterInputs() {
     const itemwiseInputs = Object.values(els.filterItemwise).filter(Boolean);
     const clientInputs = Object.values(els.filterClient).filter(Boolean);
+    const poInputs = Object.values(els.filterPo).filter(Boolean);
     itemwiseInputs.forEach((el) => {
       el.addEventListener('input', () => {
         if (activeTab === 'itemwise') renderTable(currentRows);
@@ -463,6 +587,11 @@
     clientInputs.forEach((el) => {
       el.addEventListener('input', () => {
         if (activeTab === 'clientwise') renderClientTable(currentClientRows);
+      });
+    });
+    poInputs.forEach((el) => {
+      el.addEventListener('input', () => {
+        if (activeTab === 'po-noclient') renderPoTable(currentPoRows);
       });
     });
   }

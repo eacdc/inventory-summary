@@ -63,26 +63,29 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .status { margin: 12px 0; color: #93c5fd; min-height: 20px; }
 .status.error { color: #fca5a5; }
 
-.table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.table-wrap { overflow-x: hidden; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
 .table-scroll {
   max-height: min(70vh, 620px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .data-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1100px;
+  min-width: 0;
 }
 
 .data-table th,
 .data-table td {
   border-bottom: 1px solid var(--border);
-  padding: 8px;
-  font-size: 13px;
+  padding: 6px 6px;
+  font-size: 12px;
   text-align: center;
   background: var(--panel);
+  white-space: normal;
+  word-break: break-word;
 }
 
 .data-table thead th {
@@ -156,6 +159,15 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 
 .toggle-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: #0b1220;
+}
+
+.toggle-btn-client {
   width: 24px;
   height: 24px;
   border-radius: 6px;
