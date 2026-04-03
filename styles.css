@@ -93,6 +93,12 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 
 /* Sticky header rows (title + filter) */
+.data-table thead tr:first-child th.sticky-header {
+  padding: 4px 6px;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
 .data-table .sticky-header {
   position: sticky;
   top: 0;
@@ -101,13 +107,17 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   box-shadow: 0 1px 0 var(--border);
 }
 
+/*
+  Second sticky row top must match first header row height. Using 40px when the
+  real row is ~28–34px leaves a visible gap between labels and filter inputs.
+*/
 .data-table .sticky-filter {
   position: sticky;
-  top: 40px;
+  top: 28px;
   z-index: 3;
   background: #1e3a5f;
-  padding: 4px 6px;
-  vertical-align: middle;
+  padding: 2px 6px;
+  vertical-align: top;
   box-shadow: 0 1px 0 var(--border);
 }
 
@@ -119,7 +129,7 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  height: 32px;
+  height: 28px;
   margin: 0;
   box-sizing: border-box;
   border-radius: 6px;
