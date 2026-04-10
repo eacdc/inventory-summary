@@ -19,6 +19,7 @@
           <button type="button" id="tab-itemwise" class="tab active">Itemwise</button>
           <button type="button" id="tab-clientwise" class="tab">Clientwise</button>
           <button type="button" id="tab-pono-noclient" class="tab">Top 200 PO (No Client)</button>
+          <button type="button" id="tab-all-summary" class="tab">All Tab Summary</button>
         </div>
 
         <div class="toolbar">
@@ -112,6 +113,7 @@
                   <th class="sticky-header">Client Name</th>
                   <th class="sticky-header">ItemID</th>
                   <th class="sticky-header">ItemName</th>
+                  <th class="sticky-header">ItemCode</th>
                   <th class="sticky-header">StockKG</th>
                 </tr>
                 <tr class="filter-row">
@@ -120,12 +122,33 @@
                   <th class="sticky-filter"><input type="search" id="filter-po-client" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
                   <th class="sticky-filter"><input type="search" id="filter-po-itemid" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
                   <th class="sticky-filter"><input type="search" id="filter-po-itemname" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-po-itemcode" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
                   <th class="sticky-filter"><input type="number" step="1" id="filter-po-stockkg" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                 </tr>
               </thead>
               <tbody id="po-table-body">
                 <tr>
-                  <td colspan="6" class="empty">Load to view top 200 PO (no client).</td>
+                  <td colspan="7" class="empty">Load to view top 200 PO (no client).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="all-summary-panel" class="hidden">
+          <div class="toolbar all-summary-tools">
+            <button id="btn-export-all-summary" type="button">Export to Excel</button>
+          </div>
+          <div class="table-wrap table-scroll table-scroll-all">
+            <table class="data-table all-summary-table">
+              <thead id="all-summary-head">
+                <tr>
+                  <th class="sticky-header">Load to view all tab summary.</th>
+                </tr>
+              </thead>
+              <tbody id="all-summary-body">
+                <tr>
+                  <td class="empty">Load to view all tab summary.</td>
                 </tr>
               </tbody>
             </table>

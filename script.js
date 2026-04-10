@@ -8,17 +8,22 @@
     tabItemwise: document.getElementById('tab-itemwise'),
     tabClientwise: document.getElementById('tab-clientwise'),
     tabPonoNoClient: document.getElementById('tab-pono-noclient'),
+    tabAllSummary: document.getElementById('tab-all-summary'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
     poPanel: document.getElementById('po-noclient-panel'),
+    allSummaryPanel: document.getElementById('all-summary-panel'),
     database: document.getElementById('database'),
     fromDate: document.getElementById('from-date'),
     toDate: document.getElementById('to-date'),
     btnLoad: document.getElementById('btn-load'),
+    btnExportAllSummary: document.getElementById('btn-export-all-summary'),
     status: document.getElementById('status'),
     tableBody: document.getElementById('table-body'),
     clientTableBody: document.getElementById('client-table-body'),
     poTableBody: document.getElementById('po-table-body'),
+    allSummaryHead: document.getElementById('all-summary-head'),
+    allSummaryBody: document.getElementById('all-summary-body'),
     filterItemwise: {
       label: document.getElementById('filter-itemwise-label'),
       opening: document.getElementById('filter-itemwise-opening'),
@@ -39,6 +44,7 @@
       client: document.getElementById('filter-po-client'),
       itemId: document.getElementById('filter-po-itemid'),
       itemName: document.getElementById('filter-po-itemname'),
+      itemCode: document.getElementById('filter-po-itemcode'),
       stockKg: document.getElementById('filter-po-stockkg')
     }
   };
@@ -47,6 +53,9 @@
   let currentRows = [];
   let currentClientRows = [];
   let currentPoRows = [];
+  let currentAllSummaryRows = [];
+  let allSummaryColumns = [];
+  let allSummaryColumnWidths = {};
   const expandedGroups = new Set();
   const expandedClientGroups = new Set();
 
@@ -74,16 +83,30 @@
     const isItemwise = which === 'itemwise';
     const isClientwise = which === 'clientwise';
     const isPo = which === 'po-noclient';
+    const isAllSummary = which === 'all-summary';
 
-    activeTab = isItemwise ? 'itemwise' : (isClientwise ? 'clientwise' : 'po-noclient');
+    activeTab = isItemwise
+      ? 'itemwise'
+      : (isClientwise ? 'clientwise' : (isPo ? 'po-noclient' : 'all-summary'));
 
     if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
     if (els.tabClientwise) els.tabClientwise.classList.toggle('active', isClientwise);
     if (els.tabPonoNoClient) els.tabPonoNoClient.classList.toggle('active', isPo);
+    if (els.tabAllSummary) els.tabAllSummary.classList.toggle('active', isAllSummary);
 
     if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
     if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
     if (els.poPanel) els.poPanel.classList.toggle('hidden', !isPo);
+    if (els.allSummaryPanel) els.allSummaryPanel.classList.toggle('hidden', !isAllSummary);
+
+    toggleDateFilters(!isAllSummary);
+  }
+
+  function toggleDateFilters(showDateFilters) {
+    const fromLabel = els.fromDate?.closest('label');
+    const toLabel = els.toDate?.closest('label');
+    if (fromLabel) fromLabel.style.display = showDateFilters ? '' : 'none';
+    if (toLabel) toLabel.style.display = showDateFilters ? '' : 'none';
   }
 
   function num(v) {
@@ -346,6 +369,7 @@
       client: String(f.client?.value || '').trim().toLowerCase(),
       itemId: String(f.itemId?.value || '').trim().toLowerCase(),
       itemName: String(f.itemName?.value || '').trim().toLowerCase(),
+      itemCode: String(f.itemCode?.value || '').trim().toLowerCase(),
       stockKg: f.stockKg?.value ?? ''
     };
   }
@@ -356,8 +380,9 @@
     const clientOk = !f.client || String(r.clientName || '').toLowerCase().includes(f.client);
     const itemIdOk = !f.itemId || String(r.itemId ?? '').toLowerCase().includes(f.itemId);
     const itemNameOk = !f.itemName || String(r.itemName || '').toLowerCase().includes(f.itemName);
+    const itemCodeOk = !f.itemCode || String(r.itemCode || '').toLowerCase().includes(f.itemCode);
     const stockOk = numMinPass(r.stockKg, f.stockKg);
-    return ponoOk && dateOk && clientOk && itemIdOk && itemNameOk && stockOk;
+    return ponoOk && dateOk && clientOk && itemIdOk && itemNameOk && itemCodeOk && stockOk;
   }
 
   function normalizeDateString(value) {
@@ -374,7 +399,7 @@
 
   function renderPoTable(rows) {
     if (!rows.length) {
-      els.poTableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
+      els.poTableBody.innerHTML = '<tr><td colspan="7" class="empty">No records found.</td></tr>';
       return;
     }
 
@@ -382,7 +407,7 @@
     const visible = rows.filter((r) => poRowMatches(r, f));
 
     if (!visible.length) {
-      els.poTableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
+      els.poTableBody.innerHTML = '<tr><td colspan="7" class="empty">No rows match filters.</td></tr>';
       return;
     }
 
@@ -400,10 +425,190 @@
         >${escapeHtml(displayClient)}</td>
         <td>${escapeHtml(r.itemId ?? '')}</td>
         <td>${escapeHtml(r.itemName || '')}</td>
+        <td>${escapeHtml(r.itemCode || '')}</td>
         <td class="numeric">${fmt(r.stockKg)}</td>
       </tr>
       `;
     }).join('');
+  }
+
+  function getAllSummaryColumns(rows) {
+    const cols = [];
+    const seen = new Set();
+    rows.forEach((row) => {
+      if (!row || typeof row !== 'object') return;
+      Object.keys(row).forEach((key) => {
+        if (!seen.has(key)) {
+          seen.add(key);
+          cols.push(key);
+        }
+      });
+    });
+    return cols;
+  }
+
+  function renderAllSummaryTable(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      if (els.allSummaryHead) {
+        els.allSummaryHead.innerHTML = '<tr><th class="sticky-header">No data</th></tr>';
+      }
+      if (els.allSummaryBody) {
+        els.allSummaryBody.innerHTML = '<tr><td class="empty">No records found.</td></tr>';
+      }
+      return;
+    }
+
+    const columns = getAllSummaryColumns(rows);
+    allSummaryColumns = columns;
+    allSummaryColumnWidths = calculateAllSummaryColumnWidths(rows, columns);
+    if (!columns.length) {
+      if (els.allSummaryHead) {
+        els.allSummaryHead.innerHTML = '<tr><th class="sticky-header">No columns</th></tr>';
+      }
+      if (els.allSummaryBody) {
+        els.allSummaryBody.innerHTML = '<tr><td class="empty">No records found.</td></tr>';
+      }
+      return;
+    }
+
+    if (els.allSummaryHead) {
+      els.allSummaryHead.innerHTML = `
+        <tr>${columns.map((col) => `<th class="sticky-header">${escapeHtml(col)}</th>`).join('')}</tr>
+        <tr class="filter-row">
+          ${columns.map((col) => `
+            <th class="sticky-filter">
+              <input
+                type="search"
+                class="filter-input filter-text all-summary-filter-input"
+                data-col="${escapeHtml(col)}"
+                placeholder="Filter..."
+                autocomplete="off"
+              >
+            </th>
+          `).join('')}
+        </tr>
+      `;
+    }
+
+    renderAllSummaryBody(rows, columns);
+    applyAllSummaryColumnWidths(columns);
+    bindAllSummaryFilterInputs();
+  }
+
+  function renderAllSummaryBody(rows, columns) {
+    if (!els.allSummaryBody) return;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      els.allSummaryBody.innerHTML = `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty">No rows match filters.</td></tr>`;
+      return;
+    }
+    els.allSummaryBody.innerHTML = rows.map((row) => {
+      return `<tr>${columns.map((col) => `<td>${escapeHtml(row[col] == null ? '' : String(row[col]))}</td>`).join('')}</tr>`;
+    }).join('');
+    applyAllSummaryColumnWidths(columns);
+  }
+
+  function calculateAllSummaryColumnWidths(rows, columns) {
+    const widths = {};
+    columns.forEach((col) => {
+      let maxLen = String(col || '').length;
+      rows.forEach((row) => {
+        const cell = String(row?.[col] == null ? '' : row[col]);
+        if (cell.length > maxLen) maxLen = cell.length;
+      });
+      const widthCh = Math.max(8, Math.min(maxLen + 2, 80));
+      widths[col] = widthCh;
+    });
+    return widths;
+  }
+
+  function applyAllSummaryColumnWidths(columns) {
+    if (!Array.isArray(columns) || !columns.length) return;
+    if (!els.allSummaryHead || !els.allSummaryBody) return;
+    const headerRows = els.allSummaryHead.querySelectorAll('tr');
+    headerRows.forEach((row) => {
+      const cells = row.children;
+      for (let i = 0; i < cells.length; i += 1) {
+        const col = columns[i];
+        const width = allSummaryColumnWidths[col];
+        if (width) cells[i].style.width = `${width}ch`;
+      }
+    });
+    const bodyRows = els.allSummaryBody.querySelectorAll('tr');
+    bodyRows.forEach((row) => {
+      const cells = row.children;
+      for (let i = 0; i < cells.length; i += 1) {
+        const col = columns[i];
+        const width = allSummaryColumnWidths[col];
+        if (width) cells[i].style.width = `${width}ch`;
+      }
+    });
+  }
+
+  function getAllSummaryFilterState() {
+    const state = {};
+    const inputs = document.querySelectorAll('.all-summary-filter-input');
+    inputs.forEach((input) => {
+      const col = String(input.getAttribute('data-col') || '').trim();
+      if (!col) return;
+      state[col] = String(input.value || '').trim().toLowerCase();
+    });
+    return state;
+  }
+
+  function applyAllSummaryFilters() {
+    const filters = getAllSummaryFilterState();
+    const visible = currentAllSummaryRows.filter((row) => {
+      return allSummaryColumns.every((col) => {
+        const needle = filters[col];
+        if (!needle) return true;
+        return String(row[col] == null ? '' : row[col]).toLowerCase().includes(needle);
+      });
+    });
+    renderAllSummaryBody(visible, allSummaryColumns);
+  }
+
+  function bindAllSummaryFilterInputs() {
+    const inputs = document.querySelectorAll('.all-summary-filter-input');
+    inputs.forEach((input) => {
+      input.addEventListener('input', applyAllSummaryFilters);
+    });
+  }
+
+  function toCsvCell(value) {
+    const text = String(value == null ? '' : value);
+    const escaped = text.replace(/"/g, '""');
+    return `"${escaped}"`;
+  }
+
+  function exportAllSummaryToExcel() {
+    if (!Array.isArray(currentAllSummaryRows) || currentAllSummaryRows.length === 0 || !allSummaryColumns.length) {
+      setStatus('No rows to export.', true);
+      return;
+    }
+
+    const filters = getAllSummaryFilterState();
+    const rowsToExport = currentAllSummaryRows.filter((row) => {
+      return allSummaryColumns.every((col) => {
+        const needle = filters[col];
+        if (!needle) return true;
+        return String(row[col] == null ? '' : row[col]).toLowerCase().includes(needle);
+      });
+    });
+
+    const headerLine = allSummaryColumns.map((col) => toCsvCell(col)).join(',');
+    const bodyLines = rowsToExport.map((row) => allSummaryColumns.map((col) => toCsvCell(row[col])).join(','));
+    const csv = [headerLine, ...bodyLines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `all-tab-summary-${dateStr}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus(`Exported ${rowsToExport.length} row(s).`);
   }
 
   let clientOptionsCache = null;
@@ -659,6 +864,34 @@
     }
   }
 
+  async function loadAllTabSummary() {
+    setStatus('Loading...');
+    els.btnLoad.disabled = true;
+    try {
+      const url = new URL(`${API_BASE}/inventory-summary/all-tab-summary`);
+      url.searchParams.set('database', els.database.value || 'KOL');
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+
+      currentAllSummaryRows = Array.isArray(data.records) ? data.records : [];
+      renderAllSummaryTable(currentAllSummaryRows);
+      setStatus(`Loaded ${currentAllSummaryRows.length} row(s).`);
+    } catch (e) {
+      currentAllSummaryRows = [];
+      renderAllSummaryTable(currentAllSummaryRows);
+      setStatus(e.message || 'Failed to load all tab summary.', true);
+    } finally {
+      els.btnLoad.disabled = false;
+    }
+  }
+
   els.tabItemwise.addEventListener('click', () => {
     setTab('itemwise');
     loadItemwise();
@@ -673,9 +906,19 @@
       loadPoNoClientTop200();
     });
   }
+  if (els.tabAllSummary) {
+    els.tabAllSummary.addEventListener('click', () => {
+      setTab('all-summary');
+      loadAllTabSummary();
+    });
+  }
+  if (els.btnExportAllSummary) {
+    els.btnExportAllSummary.addEventListener('click', exportAllSummaryToExcel);
+  }
   els.btnLoad.addEventListener('click', () => {
     if (activeTab === 'clientwise') return loadClientwise();
     if (activeTab === 'po-noclient') return loadPoNoClientTop200();
+    if (activeTab === 'all-summary') return loadAllTabSummary();
     return loadItemwise();
   });
 

@@ -16,7 +16,12 @@ body {
   color: var(--text);
 }
 
-.app { max-width: 1500px; margin: 0 auto; padding: 18px; }
+.app {
+  width: 90vw;
+  max-width: 90vw;
+  margin: 0 auto;
+  padding: 18px 0;
+}
 .header h1 { margin: 0; }
 .header p { margin: 6px 0 0; color: var(--muted); }
 
@@ -26,6 +31,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px;
+  width: 100%;
 }
 
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -49,6 +55,10 @@ body {
   align-items: end;
 }
 
+.all-summary-tools {
+  margin-bottom: 10px;
+}
+
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 input, select, button {
   height: 34px;
@@ -68,6 +78,16 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   max-height: min(70vh, 620px);
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.table-scroll-all {
+  height: 760px;
+  max-height: 760px;
+  overflow-y: auto;
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .data-table {
@@ -209,3 +229,15 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 .empty { text-align: center; color: var(--muted); padding: 18px 10px; }
 .hidden { display: none; }
+
+#all-summary-panel .data-table {
+  table-layout: fixed;
+  min-width: max-content;
+}
+
+#all-summary-panel .data-table th,
+#all-summary-panel .data-table td {
+  white-space: nowrap;
+  word-break: normal;
+  text-align: left;
+}
