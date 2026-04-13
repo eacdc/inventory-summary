@@ -412,21 +412,27 @@
     }
 
     els.poTableBody.innerHTML = visible.map((r) => {
-      const displayClient = (r.clientName && String(r.clientName).trim()) ? r.clientName : 'No Client';
-      const poDateNorm = normalizeDateString(r.poDate || '');
+      const displayClientRaw = r.currentClientName ?? r.CurrentClientName ?? r.clientName;
+      const displayClient = (displayClientRaw && String(displayClientRaw).trim()) ? displayClientRaw : 'No Client';
+      const sourceTypeVal = String(r.sourceType ?? r.SourceType ?? '').trim();
+      const sourceTxnIdVal = String(r.sourceTransactionId ?? r.SourceTransactionID ?? '').trim();
+      const poTxnIdVal = String(r.poTransactionId ?? r.POTransactionID ?? '').trim();
+      const itemIdVal = String(r.itemId ?? r.ItemID ?? '').trim();
       return `
       <tr>
-        <td>${escapeHtml(r.pono || '')}</td>
-        <td>${escapeHtml(normalizeDateString(r.poDate || ''))}</td>
+        <td>${escapeHtml(r.pono ?? r.PONumber ?? '')}</td>
+        <td>${escapeHtml(normalizeDateString(r.poDate ?? r.PODate ?? ''))}</td>
         <td
           class="po-client-cell"
-          data-po-transaction-id="${escapeHtml(String(r.poTransactionId ?? ''))}"
-          data-item-id="${escapeHtml(String(r.itemId ?? ''))}"
+          data-po-transaction-id="${escapeHtml(poTxnIdVal)}"
+          data-source-type="${escapeHtml(sourceTypeVal)}"
+          data-source-transaction-id="${escapeHtml(sourceTxnIdVal)}"
+          data-item-id="${escapeHtml(itemIdVal)}"
         >${escapeHtml(displayClient)}</td>
-        <td>${escapeHtml(r.itemId ?? '')}</td>
-        <td>${escapeHtml(r.itemName || '')}</td>
-        <td>${escapeHtml(r.itemCode || '')}</td>
-        <td class="numeric">${fmt(r.stockKg)}</td>
+        <td>${escapeHtml(r.itemId ?? r.ItemID ?? '')}</td>
+        <td>${escapeHtml(r.itemName ?? r.ItemName ?? '')}</td>
+        <td>${escapeHtml(r.itemCode ?? r.ItemCode ?? '')}</td>
+        <td class="numeric">${fmt(r.stockKg ?? r.StockKG)}</td>
       </tr>
       `;
     }).join('');
@@ -636,6 +642,7 @@
 
   async function updatePoClientId(payload) {
     const url = new URL(`${API_BASE}/inventory-summary/po-noclient-update-client`);
+    console.log('payload', payload);
     const res = await fetch(url.toString(), {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -658,8 +665,13 @@
     const clientOptions = await loadClientOptionsForDatabase(db);
     if (!clientOptions.length) throw new Error('No clients found for dropdown.');
 
-    const poTransactionId = td.dataset.poTransactionId || td.dataset['po-transaction-id'] || '';
-    const itemId = td.dataset.itemId || td.dataset['item-id'] || '';
+    console.log('clientOptions', JSON.stringify(td.dataset, null, 2));
+
+    const poTransactionId = td.dataset.poTransactionId || '';
+    console.log('td.dataset', JSON.stringify(td.dataset, null, 2));
+    const sourceTransactionId = td.dataset.sourceTransactionId || '';
+    const sourceType = String(td.dataset.sourceType || '').trim();
+    const itemId = td.dataset.itemId || '';
 
     const select = document.createElement('select');
     select.className = 'po-client-edit-select';
@@ -693,7 +705,9 @@
           database: db,
           poTransactionId: poTransactionId,
           itemId: itemId,
-          newClientId
+          newClientId,
+          sourceType: sourceType,
+          sourceTransactionId: sourceTransactionId
         });
         await loadPoNoClientTop200();
       } catch (e) {
