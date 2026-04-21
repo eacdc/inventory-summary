@@ -17,6 +17,7 @@
     fromDate: document.getElementById('from-date'),
     toDate: document.getElementById('to-date'),
     btnLoad: document.getElementById('btn-load'),
+    btnExportCurrent: document.getElementById('btn-export-current'),
     btnAllSummaryPreset: document.getElementById('btn-all-summary-preset'),
     btnExportAllSummary: document.getElementById('btn-export-all-summary'),
     status: document.getElementById('status'),
@@ -847,8 +848,9 @@
         const cell = String(row?.[col] == null ? '' : row[col]);
         if (cell.length > maxLen) maxLen = cell.length;
       });
-      let widthCh = Math.max(8, Math.min(maxLen + 2, 80));
-      if (isAgingColumnName(col)) widthCh = Math.max(widthCh, 22);
+      const cap = isAgingColumnName(col) ? 14 : 18;
+      let widthCh = Math.max(6, Math.min(maxLen + 2, cap));
+      if (isAgingColumnName(col)) widthCh = Math.max(widthCh, 10);
       widths[col] = widthCh;
     });
     return widths;
@@ -863,7 +865,10 @@
       for (let i = 0; i < cells.length; i += 1) {
         const col = columns[i];
         const width = allSummaryColumnWidths[col];
-        if (width) cells[i].style.width = `${width}ch`;
+        if (width) {
+          cells[i].style.width = 'auto';
+          cells[i].style.maxWidth = `${width}ch`;
+        }
       }
     });
     const bodyRows = els.allSummaryBody.querySelectorAll('tr');
@@ -872,7 +877,10 @@
       for (let i = 0; i < cells.length; i += 1) {
         const col = columns[i];
         const width = allSummaryColumnWidths[col];
-        if (width) cells[i].style.width = `${width}ch`;
+        if (width) {
+          cells[i].style.width = 'auto';
+          cells[i].style.maxWidth = `${width}ch`;
+        }
       }
     });
   }
@@ -909,6 +917,143 @@
     return `"${escaped}"`;
   }
 
+  function downloadCsvFile(filename, csvBody) {
+    const blob = new Blob(['\ufeff' + csvBody], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function getFilteredItemwiseExportRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const f = getItemwiseFilterState();
+    const grouped = groupRows(rows);
+    const out = [];
+    grouped.forEach((g) => {
+      const visibleItems = g.items.filter((r) => itemwiseItemMatches(r, g, f));
+      if (visibleItems.length === 0) return;
+      const totals = sumItemwiseItems(visibleItems);
+      if (!itemwiseTotalsPass(totals, f)) return;
+      visibleItems.forEach((r) => {
+        out.push({
+          itemGroup: g.key,
+          itemName: r.itemName || '',
+          openingKg: r.openingKg,
+          stockInKg: r.stockInKg,
+          stockOutKg: r.stockOutKg,
+          closingKg: r.closingKg
+        });
+      });
+    });
+    return out;
+  }
+
+  function getFilteredClientExportRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const f = getClientFilterState();
+    const grouped = groupClientRows(rows);
+    const out = [];
+    grouped.forEach((g) => {
+      const visibleItems = g.items.filter((r) => clientItemMatches(r, g, f));
+      if (visibleItems.length === 0) return;
+      const totals = sumClientItems(visibleItems);
+      if (!clientTotalsPass(totals, f)) return;
+      visibleItems.forEach((r) => {
+        out.push({
+          clientName: g.key,
+          itemName: r.itemName || '',
+          openingStockKg: r.openingStockKg,
+          receiptKg: r.receiptKg,
+          issueKg: r.issueKg,
+          closingStockKg: r.closingStockKg
+        });
+      });
+    });
+    return out;
+  }
+
+  function exportCurrentTabToExcel() {
+    const db = String(els.database?.value || 'KOL').trim().toUpperCase();
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    if (activeTab === 'itemwise') {
+      const rows = getFilteredItemwiseExportRows(currentRows);
+      if (!rows.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = ['Item Group', 'Item Name', 'Opening (KG)', 'Stock In (KG)', 'Stock Out (KG)', 'Closing (KG)'];
+      const lines = [header.map(toCsvCell).join(',')];
+      rows.forEach((r) => {
+        lines.push(
+          [r.itemGroup, r.itemName, r.openingKg, r.stockInKg, r.stockOutKg, r.closingKg].map(toCsvCell).join(',')
+        );
+      });
+      downloadCsvFile(`inventory-itemwise-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${rows.length} row(s) (itemwise).`);
+      return;
+    }
+
+    if (activeTab === 'clientwise') {
+      const rows = getFilteredClientExportRows(currentClientRows);
+      if (!rows.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = ['Client', 'Item Name', 'Opening (KG)', 'Receipt (KG)', 'Issue (KG)', 'Closing (KG)'];
+      const lines = [header.map(toCsvCell).join(',')];
+      rows.forEach((r) => {
+        lines.push(
+          [r.clientName, r.itemName, r.openingStockKg, r.receiptKg, r.issueKg, r.closingStockKg].map(toCsvCell).join(',')
+        );
+      });
+      downloadCsvFile(`inventory-clientwise-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${rows.length} row(s) (clientwise).`);
+      return;
+    }
+
+    if (activeTab === 'po-noclient') {
+      const f = getPoFilterState();
+      const visible = (currentPoRows || []).filter((r) => poRowMatches(r, f));
+      if (!visible.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = ['PONO', 'PO Date', 'Client Name', 'ItemID', 'ItemName', 'ItemCode', 'StockKG'];
+      const lines = [header.map(toCsvCell).join(',')];
+      visible.forEach((r) => {
+        const displayClientRaw = r.currentClientName ?? r.CurrentClientName ?? r.clientName;
+        const displayClient =
+          displayClientRaw && String(displayClientRaw).trim() ? displayClientRaw : 'No Client';
+        lines.push(
+          [
+            r.pono ?? r.PONumber ?? '',
+            normalizeDateString(r.poDate ?? r.PODate ?? ''),
+            displayClient,
+            r.itemId ?? r.ItemID ?? '',
+            r.itemName ?? r.ItemName ?? '',
+            r.itemCode ?? r.ItemCode ?? '',
+            r.stockKg ?? r.StockKG ?? ''
+          ]
+            .map(toCsvCell)
+            .join(',')
+        );
+      });
+      downloadCsvFile(`inventory-po-no-client-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${visible.length} row(s) (PO no client).`);
+      return;
+    }
+
+    if (activeTab === 'all-summary') {
+      exportAllSummaryToExcel();
+    }
+  }
+
   function exportAllSummaryToExcel() {
     if (!Array.isArray(currentAllSummaryRows) || currentAllSummaryRows.length === 0 || !allSummaryColumns.length) {
       setStatus('No rows to export.', true);
@@ -921,17 +1066,9 @@
 
     const headerLine = allSummaryColumns.map((col) => toCsvCell(col)).join(',');
     const bodyLines = rowsToExport.map((row) => allSummaryColumns.map((col) => toCsvCell(row[col])).join(','));
-    const csv = [headerLine, ...bodyLines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const csv = [headerLine, ...bodyLines].join('\r\n');
     const dateStr = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `all-tab-summary-${dateStr}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadCsvFile(`all-tab-summary-${dateStr}.csv`, csv);
     setStatus(`Exported ${rowsToExport.length} row(s).`);
   }
 
@@ -1246,6 +1383,9 @@
   }
   if (els.btnExportAllSummary) {
     els.btnExportAllSummary.addEventListener('click', exportAllSummaryToExcel);
+  }
+  if (els.btnExportCurrent) {
+    els.btnExportCurrent.addEventListener('click', exportCurrentTabToExcel);
   }
   els.btnLoad.addEventListener('click', () => {
     if (activeTab === 'clientwise') return loadClientwise();

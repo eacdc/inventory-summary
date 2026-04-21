@@ -17,8 +17,8 @@ body {
 }
 
 .app {
-  width: 90vw;
-  max-width: 90vw;
+  width: calc(100vw - 24px);
+  max-width: min(1920px, calc(100vw - 24px));
   margin: 0 auto;
   padding: 18px 0;
 }
@@ -46,6 +46,27 @@ body {
 .tab.active {
   background: rgba(59, 130, 246, 0.28);
   border-color: var(--accent);
+}
+
+/* External tool links styled like in-app tabs (after All Tab Summary) */
+a.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+  font: inherit;
+  cursor: pointer;
+}
+
+a.tab:hover {
+  border-color: var(--muted);
+  color: #e2e8f0;
+}
+
+a.tab.tab-external {
+  border-style: dashed;
 }
 
 .toolbar {
@@ -111,7 +132,7 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   height: 760px;
   max-height: 760px;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   width: 100%;
   max-width: 100%;
   margin: 0;
@@ -258,15 +279,18 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .hidden { display: none; }
 
 #all-summary-panel .data-table {
-  table-layout: fixed;
-  min-width: max-content;
+  table-layout: auto;
+  width: 100%;
+  min-width: 0;
 }
 
 #all-summary-panel .data-table th,
 #all-summary-panel .data-table td {
-  white-space: nowrap;
-  word-break: normal;
+  white-space: normal;
+  word-break: break-word;
+  hyphens: auto;
   text-align: left;
+  vertical-align: top;
 }
 
 #all-summary-panel .data-table td.col-aging {
