@@ -20,6 +20,7 @@
           <button type="button" id="tab-clientwise" class="tab">Clientwise</button>
           <button type="button" id="tab-pono-noclient" class="tab">Top 200 PO (No Client)</button>
           <button type="button" id="tab-all-summary" class="tab">All Tab Summary</button>
+          <button type="button" id="tab-stock-buffer" class="tab">Stock search (buffer)</button>
           <a
             class="tab tab-external"
             href="https://client-wise-paper-consumption.onrender.com"
@@ -138,6 +139,57 @@
               <tbody id="po-table-body">
                 <tr>
                   <td colspan="7" class="empty">Load to view top 200 PO (no client).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="stock-buffer-panel" class="hidden">
+          <!-- <p class="stock-buffer-intro">
+            Calls <code>dbo.GetItemDetailsWithBufferTotal_Manu</code>: <code>@Quality</code>, <code>@GSM</code>, <code>@SizeW</code> (deckle), optional <code>@SizeL</code> (blank → NULL). <code>@CompanyID</code> is always <strong>2</strong> on the server.
+          </p> -->
+          <form id="stock-buffer-search-form" class="stock-buffer-form toolbar" action="#" method="get">
+            <label>
+              Deckle — Size W (required)
+              <input id="stock-buffer-deckle" type="number" step="any" min="0" inputmode="decimal" placeholder="e.g. 600">
+            </label>
+            <label>
+              Size L (optional)
+              <input id="stock-buffer-sizel" type="number" step="any" min="0" inputmode="decimal" placeholder="blank = NULL">
+            </label>
+            <label>
+              GSM (required)
+              <input id="stock-buffer-gsm" type="number" step="1" min="0" inputmode="numeric" placeholder="e.g. 240">
+            </label>
+            <label>
+              Quality (required)
+              <input id="stock-buffer-quality" type="text" maxlength="255" placeholder="e.g. FBB" autocomplete="off">
+            </label>
+            <button id="btn-stock-buffer-search" type="submit">Search</button>
+          </form>
+          <div class="table-wrap table-scroll table-scroll-all">
+            <table class="data-table all-summary-table stock-buffer-table">
+              <thead>
+                <tr>
+                  <th class="sticky-header">Item Code</th>
+                  <th class="sticky-header">Item Name</th>
+                  <th class="sticky-header">Size W</th>
+                  <th class="sticky-header">Size L</th>
+                  <th class="sticky-header">Quality</th>
+                  <th class="sticky-header">GSM</th>
+                  <th class="sticky-header">Manufacturer</th>
+                  <th class="sticky-header">Certification</th>
+                  <th class="sticky-header">Stock unit</th>
+                  <th class="sticky-header">Stock</th>
+                  <th class="sticky-header">Free stock</th>
+                  <th class="sticky-header">Client name</th>
+                  <th class="sticky-header">Stock type</th>
+                </tr>
+              </thead>
+              <tbody id="stock-buffer-body">
+                <tr>
+                  <td colspan="13" class="empty">Enter deckle, GSM, and quality, then click Search.</td>
                 </tr>
               </tbody>
             </table>

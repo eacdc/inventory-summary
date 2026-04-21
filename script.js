@@ -9,10 +9,19 @@
     tabClientwise: document.getElementById('tab-clientwise'),
     tabPonoNoClient: document.getElementById('tab-pono-noclient'),
     tabAllSummary: document.getElementById('tab-all-summary'),
+    tabStockBuffer: document.getElementById('tab-stock-buffer'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
     poPanel: document.getElementById('po-noclient-panel'),
     allSummaryPanel: document.getElementById('all-summary-panel'),
+    stockBufferPanel: document.getElementById('stock-buffer-panel'),
+    stockBufferDeckle: document.getElementById('stock-buffer-deckle'),
+    stockBufferGsm: document.getElementById('stock-buffer-gsm'),
+    stockBufferQuality: document.getElementById('stock-buffer-quality'),
+    stockBufferSizeL: document.getElementById('stock-buffer-sizel'),
+    stockBufferBody: document.getElementById('stock-buffer-body'),
+    stockBufferSearchForm: document.getElementById('stock-buffer-search-form'),
+    btnStockBufferSearch: document.getElementById('btn-stock-buffer-search'),
     database: document.getElementById('database'),
     fromDate: document.getElementById('from-date'),
     toDate: document.getElementById('to-date'),
@@ -56,6 +65,8 @@
   let currentClientRows = [];
   let currentPoRows = [];
   let currentAllSummaryRows = [];
+  let currentStockBufferRows = [];
+  let stockBufferSearchInFlight = false;
   let allSummaryColumns = [];
   let allSummaryColumnWidths = {};
   const expandedGroups = new Set();
@@ -90,27 +101,48 @@
     els.status.classList.toggle('error', Boolean(isError));
   }
 
+  const STOCK_BUFFER_ROW_KEYS = [
+    'itemCode',
+    'itemName',
+    'sizeW',
+    'sizeL',
+    'quality',
+    'gsm',
+    'manufacturer',
+    'certification',
+    'stockUnit',
+    'stock',
+    'freeStock',
+    'clientName',
+    'stockType'
+  ];
+
   function setTab(which) {
     const isItemwise = which === 'itemwise';
     const isClientwise = which === 'clientwise';
     const isPo = which === 'po-noclient';
     const isAllSummary = which === 'all-summary';
+    const isStockBuffer = which === 'stock-buffer';
 
     activeTab = isItemwise
       ? 'itemwise'
-      : (isClientwise ? 'clientwise' : (isPo ? 'po-noclient' : 'all-summary'));
+      : (isClientwise ? 'clientwise' : (isPo ? 'po-noclient' : (isAllSummary ? 'all-summary' : (isStockBuffer ? 'stock-buffer' : 'itemwise'))));
 
     if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
     if (els.tabClientwise) els.tabClientwise.classList.toggle('active', isClientwise);
     if (els.tabPonoNoClient) els.tabPonoNoClient.classList.toggle('active', isPo);
     if (els.tabAllSummary) els.tabAllSummary.classList.toggle('active', isAllSummary);
+    if (els.tabStockBuffer) els.tabStockBuffer.classList.toggle('active', isStockBuffer);
 
     if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
     if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
     if (els.poPanel) els.poPanel.classList.toggle('hidden', !isPo);
     if (els.allSummaryPanel) els.allSummaryPanel.classList.toggle('hidden', !isAllSummary);
+    if (els.stockBufferPanel) els.stockBufferPanel.classList.toggle('hidden', !isStockBuffer);
 
-    toggleDateFilters(!isAllSummary);
+    if (els.btnLoad) els.btnLoad.classList.toggle('hidden', isStockBuffer);
+
+    toggleDateFilters(isItemwise || isClientwise || isPo);
     updateAllSummaryPresetToolbar();
   }
 
@@ -1051,6 +1083,37 @@
 
     if (activeTab === 'all-summary') {
       exportAllSummaryToExcel();
+      return;
+    }
+
+    if (activeTab === 'stock-buffer') {
+      const rows = currentStockBufferRows || [];
+      if (!rows.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = [
+        'Item Code',
+        'Item Name',
+        'Size W',
+        'Size L',
+        'Quality',
+        'GSM',
+        'Manufacturer',
+        'Certification',
+        'Stock unit',
+        'Stock',
+        'Free stock',
+        'Client name',
+        'Stock type'
+      ];
+      const lines = [header.map(toCsvCell).join(',')];
+      rows.forEach((r) => {
+        lines.push(STOCK_BUFFER_ROW_KEYS.map((k) => toCsvCell(r[k] == null ? '' : String(r[k]))).join(','));
+      });
+      downloadCsvFile(`inventory-stock-buffer-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${rows.length} row(s) (stock search).`);
+      return;
     }
   }
 
@@ -1333,6 +1396,88 @@
     }
   }
 
+  function renderStockBufferTable(rows) {
+    if (!els.stockBufferBody) return;
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+      els.stockBufferBody.innerHTML =
+        '<tr><td colspan="13" class="empty">No rows to show. Run a search from the fields above.</td></tr>';
+      return;
+    }
+    els.stockBufferBody.innerHTML = list
+      .map((row) => {
+        return `<tr>${STOCK_BUFFER_ROW_KEYS.map((key) => {
+          const raw = row[key];
+          const text = raw == null ? '' : String(raw);
+          return `<td>${escapeHtml(text)}</td>`;
+        }).join('')}</tr>`;
+      })
+      .join('');
+  }
+
+  const STOCK_BUFFER_SEARCH_BTN_IDLE = 'Search';
+
+  function setStockBufferSearchLoading(isLoading) {
+    const btn = els.btnStockBufferSearch;
+    if (!btn) return;
+    if (isLoading) {
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      btn.textContent = 'Searching…';
+      btn.setAttribute('aria-busy', 'true');
+    } else {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.textContent = STOCK_BUFFER_SEARCH_BTN_IDLE;
+      btn.setAttribute('aria-busy', 'false');
+    }
+  }
+
+  async function runStockBufferSearch() {
+    const deckleVal = String(els.stockBufferDeckle?.value || '').trim();
+    const gsmVal = String(els.stockBufferGsm?.value || '').trim();
+    const qualityVal = String(els.stockBufferQuality?.value || '').trim();
+    const sizeLVal = String(els.stockBufferSizeL?.value || '').trim();
+
+    if (!deckleVal || !gsmVal || !qualityVal) {
+      setStatus('Deckle, GSM, and Quality are required.', true);
+      return;
+    }
+
+    if (stockBufferSearchInFlight) return;
+    stockBufferSearchInFlight = true;
+
+    setStatus('Searching...');
+    setStockBufferSearchLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/inventory-summary/stock-search-buffer`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          database: els.database.value || 'KOL',
+          deckle: parseFloat(deckleVal),
+          gsm: parseInt(gsmVal, 10),
+          quality: qualityVal,
+          sizeL: sizeLVal === '' ? undefined : parseFloat(sizeLVal)
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      currentStockBufferRows = Array.isArray(data.records) ? data.records : [];
+      renderStockBufferTable(currentStockBufferRows);
+      setStatus(`Found ${currentStockBufferRows.length} row(s).`);
+    } catch (e) {
+      currentStockBufferRows = [];
+      renderStockBufferTable(currentStockBufferRows);
+      setStatus(e.message || 'Stock search failed.', true);
+    } finally {
+      stockBufferSearchInFlight = false;
+      setStockBufferSearchLoading(false);
+    }
+  }
+
   async function loadAllTabSummary() {
     setStatus('Loading...');
     els.btnLoad.disabled = true;
@@ -1381,6 +1526,17 @@
       loadAllTabSummary();
     });
   }
+  if (els.tabStockBuffer) {
+    els.tabStockBuffer.addEventListener('click', () => {
+      setTab('stock-buffer');
+    });
+  }
+  if (els.stockBufferSearchForm) {
+    els.stockBufferSearchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      runStockBufferSearch();
+    });
+  }
   if (els.btnExportAllSummary) {
     els.btnExportAllSummary.addEventListener('click', exportAllSummaryToExcel);
   }
@@ -1391,6 +1547,7 @@
     if (activeTab === 'clientwise') return loadClientwise();
     if (activeTab === 'po-noclient') return loadPoNoClientTop200();
     if (activeTab === 'all-summary') return loadAllTabSummary();
+    if (activeTab === 'stock-buffer') return;
     return loadItemwise();
   });
 

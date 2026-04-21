@@ -107,6 +107,31 @@ a.tab.tab-external {
   margin-bottom: 10px;
 }
 
+.stock-buffer-intro {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.stock-buffer-intro code {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.stock-buffer-form {
+  margin-bottom: 12px;
+}
+
+#btn-stock-buffer-search.is-loading {
+  cursor: wait;
+  opacity: 0.9;
+}
+
+.stock-buffer-table {
+  min-width: max-content;
+}
+
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 input, select, button {
   height: 34px;
