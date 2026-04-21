@@ -17,6 +17,7 @@
     fromDate: document.getElementById('from-date'),
     toDate: document.getElementById('to-date'),
     btnLoad: document.getElementById('btn-load'),
+    btnAllSummaryPreset: document.getElementById('btn-all-summary-preset'),
     btnExportAllSummary: document.getElementById('btn-export-all-summary'),
     status: document.getElementById('status'),
     tableBody: document.getElementById('table-body'),
@@ -65,6 +66,9 @@
   let agingFilterPopoverAnchor = null;
   let agingFilterDocMousedown = null;
 
+  /** All Tab Summary: preset filter Aging ≥ 30 days and PhysicalStockInPU ≥ 1000 (frontend only). */
+  let allSummaryPresetAge30Pu1000 = false;
+
   function setDefaultDates() {
     const to = new Date();
     const from = new Date();
@@ -106,6 +110,39 @@
     if (els.allSummaryPanel) els.allSummaryPanel.classList.toggle('hidden', !isAllSummary);
 
     toggleDateFilters(!isAllSummary);
+    updateAllSummaryPresetToolbar();
+  }
+
+  function updateAllSummaryPresetToolbar() {
+    const btn = els.btnAllSummaryPreset;
+    if (!btn) return;
+    const hasRows = Array.isArray(currentAllSummaryRows) && currentAllSummaryRows.length > 0;
+    btn.disabled = !hasRows;
+    btn.classList.toggle('is-active', Boolean(allSummaryPresetAge30Pu1000 && hasRows));
+    btn.setAttribute('aria-pressed', allSummaryPresetAge30Pu1000 && hasRows ? 'true' : 'false');
+  }
+
+  function getAllSummaryRowFieldCI(row, canonicalName) {
+    if (!row || typeof row !== 'object') return undefined;
+    const want = String(canonicalName || '').toLowerCase();
+    const keys = Object.keys(row);
+    const k = keys.find((x) => String(x).toLowerCase() === want);
+    return k !== undefined ? row[k] : undefined;
+  }
+
+  function allSummaryPresetAge30Pu1000Pass(row) {
+    const agingRaw = getAllSummaryRowFieldCI(row, 'Aging');
+    const ageDays = parseAgingCellNumeric(agingRaw);
+    if (!Number.isFinite(ageDays) || ageDays < 30) return false;
+    const puRaw = getAllSummaryRowFieldCI(row, 'PhysicalStockInPU');
+    const pu = Number(puRaw);
+    if (!Number.isFinite(pu) || pu < 1000) return false;
+    return true;
+  }
+
+  function getAllSummaryRowsAfterPreset(rows) {
+    if (!allSummaryPresetAge30Pu1000) return rows;
+    return rows.filter((r) => allSummaryPresetAge30Pu1000Pass(r));
   }
 
   function toggleDateFilters(showDateFilters) {
@@ -707,6 +744,7 @@
 
   function renderAllSummaryTable(rows) {
     if (!Array.isArray(rows) || rows.length === 0) {
+      allSummaryPresetAge30Pu1000 = false;
       allSummaryAgingFilter = { op: '', value: '' };
       closeAgingFilterPopover();
       if (els.allSummaryHead) {
@@ -715,11 +753,13 @@
       if (els.allSummaryBody) {
         els.allSummaryBody.innerHTML = '<tr><td class="empty">No records found.</td></tr>';
       }
+      updateAllSummaryPresetToolbar();
       return;
     }
 
     const columns = getAllSummaryColumns(rows);
     allSummaryColumns = columns;
+    allSummaryPresetAge30Pu1000 = false;
     allSummaryAgingFilter = { op: '', value: '' };
     closeAgingFilterPopover();
     allSummaryColumnWidths = calculateAllSummaryColumnWidths(rows, columns);
@@ -732,6 +772,7 @@
       if (els.allSummaryBody) {
         els.allSummaryBody.innerHTML = '<tr><td class="empty">No records found.</td></tr>';
       }
+      updateAllSummaryPresetToolbar();
       return;
     }
 
@@ -779,6 +820,7 @@
     applyAllSummaryColumnWidths(columns);
     bindAllSummaryFilterInputs();
     updateAgingFilterHeaderUi();
+    updateAllSummaryPresetToolbar();
   }
 
   function renderAllSummaryBody(rows, columns) {
@@ -848,7 +890,8 @@
 
   function applyAllSummaryFilters() {
     const filters = getAllSummaryFilterState();
-    const visible = currentAllSummaryRows.filter((row) => allSummaryRowMatchesFilters(row, filters));
+    const base = getAllSummaryRowsAfterPreset(currentAllSummaryRows);
+    const visible = base.filter((row) => allSummaryRowMatchesFilters(row, filters));
     updateAgingFilterHeaderUi();
     renderAllSummaryBody(visible, allSummaryColumns);
   }
@@ -873,7 +916,8 @@
     }
 
     const filters = getAllSummaryFilterState();
-    const rowsToExport = currentAllSummaryRows.filter((row) => allSummaryRowMatchesFilters(row, filters));
+    const base = getAllSummaryRowsAfterPreset(currentAllSummaryRows);
+    const rowsToExport = base.filter((row) => allSummaryRowMatchesFilters(row, filters));
 
     const headerLine = allSummaryColumns.map((col) => toCsvCell(col)).join(',');
     const bodyLines = rowsToExport.map((row) => allSummaryColumns.map((col) => toCsvCell(row[col])).join(','));
@@ -1209,6 +1253,23 @@
     if (activeTab === 'all-summary') return loadAllTabSummary();
     return loadItemwise();
   });
+
+  if (els.btnAllSummaryPreset) {
+    els.btnAllSummaryPreset.addEventListener('click', () => {
+      if (!currentAllSummaryRows.length) return;
+      allSummaryPresetAge30Pu1000 = !allSummaryPresetAge30Pu1000;
+      updateAllSummaryPresetToolbar();
+      applyAllSummaryFilters();
+      const filters = getAllSummaryFilterState();
+      const base = getAllSummaryRowsAfterPreset(currentAllSummaryRows);
+      const visibleCount = base.filter((r) => allSummaryRowMatchesFilters(r, filters)).length;
+      setStatus(
+        allSummaryPresetAge30Pu1000
+          ? `Preset on: ${visibleCount} row(s) match Aging ≥ 30 days and PU ≥ 1000 (column filters still apply).`
+          : `Preset off: showing all ${currentAllSummaryRows.length} loaded row(s) (column filters still apply).`
+      );
+    });
+  }
 
   function bindFilterInputs() {
     const itemwiseInputs = Object.values(els.filterItemwise).filter(Boolean);

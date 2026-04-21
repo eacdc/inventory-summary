@@ -55,6 +55,33 @@ body {
   align-items: end;
 }
 
+.toolbar button.btn-toolbar-secondary {
+  background: #0b1220;
+  border-color: var(--border);
+  color: var(--text);
+  font-size: 13px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.toolbar button.btn-toolbar-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: #93c5fd;
+}
+
+.toolbar button.btn-toolbar-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #0b1220;
+  border-color: var(--border);
+}
+
+.toolbar button.btn-toolbar-secondary.is-active:not(:disabled) {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
 .all-summary-tools {
   margin-bottom: 10px;
 }
