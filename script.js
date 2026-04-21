@@ -59,6 +59,12 @@
   const expandedGroups = new Set();
   const expandedClientGroups = new Set();
 
+  /** All Tab Summary: numeric filter for the Aging column (days). */
+  let allSummaryAgingFilter = { op: '', value: '' };
+  let agingFilterPopoverEl = null;
+  let agingFilterPopoverAnchor = null;
+  let agingFilterDocMousedown = null;
+
   function setDefaultDates() {
     const to = new Date();
     const from = new Date();
@@ -123,6 +129,198 @@
     const t = String(filterRaw ?? '').trim();
     if (t === '') return true;
     return Math.round(num(value)) >= Math.round(num(t));
+  }
+
+  function isAgingColumnName(col) {
+    return String(col || '').trim().toLowerCase() === 'aging';
+  }
+
+  function parseAgingCellNumeric(raw) {
+    if (raw == null || raw === '') return NaN;
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n;
+    const m = String(raw).match(/-?\d+/);
+    return m ? Number(m[0]) : NaN;
+  }
+
+  function agingFilterIsActive() {
+    const op = String(allSummaryAgingFilter.op || '').trim();
+    const valStr = String(allSummaryAgingFilter.value ?? '').trim();
+    if (!op || !valStr) return false;
+    return Number.isFinite(Number(valStr));
+  }
+
+  function agingNumericPass(rawCell) {
+    const op = String(allSummaryAgingFilter.op || '').trim();
+    const valStr = String(allSummaryAgingFilter.value ?? '').trim();
+    if (!op || valStr === '') return true;
+    const threshold = Number(valStr);
+    if (!Number.isFinite(threshold)) return true;
+    const actual = parseAgingCellNumeric(rawCell);
+    if (!Number.isFinite(actual)) return false;
+    const a = Math.round(actual);
+    const t = Math.round(threshold);
+    switch (op) {
+      case 'lt': return a < t;
+      case 'lte': return a <= t;
+      case 'gt': return a > t;
+      case 'gte': return a >= t;
+      case 'eq': return a === t;
+      case 'neq': return a !== t;
+      default: return true;
+    }
+  }
+
+  function getAgingFilterSummaryLabel() {
+    if (!agingFilterIsActive()) return '—';
+    const op = String(allSummaryAgingFilter.op || '').trim();
+    const v = String(allSummaryAgingFilter.value ?? '').trim();
+    const sym = { lt: '<', lte: '≤', gt: '>', gte: '≥', eq: '=', neq: '≠' }[op] || op;
+    return `${sym} ${v} days`;
+  }
+
+  function closeAgingFilterPopover() {
+    if (agingFilterPopoverEl) {
+      agingFilterPopoverEl.classList.add('hidden');
+    }
+    if (agingFilterPopoverAnchor) {
+      agingFilterPopoverAnchor.setAttribute('aria-expanded', 'false');
+      agingFilterPopoverAnchor = null;
+    }
+    if (agingFilterDocMousedown) {
+      document.removeEventListener('mousedown', agingFilterDocMousedown, true);
+      agingFilterDocMousedown = null;
+    }
+  }
+
+  function positionAgingFilterPopover(anchor) {
+    if (!agingFilterPopoverEl || !anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const pad = 6;
+    const pop = agingFilterPopoverEl;
+    pop.style.position = 'fixed';
+    let left = rect.left;
+    let top = rect.bottom + pad;
+    const w = pop.offsetWidth || 240;
+    const h = pop.offsetHeight || 180;
+    if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+    if (left < 8) left = 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, rect.top - h - pad);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${top}px`;
+  }
+
+  function syncAgingFilterPopoverFields() {
+    if (!agingFilterPopoverEl) return;
+    const opSel = agingFilterPopoverEl.querySelector('.aging-filter-op');
+    const valInp = agingFilterPopoverEl.querySelector('.aging-filter-value');
+    if (opSel) opSel.value = String(allSummaryAgingFilter.op || '');
+    if (valInp) valInp.value = String(allSummaryAgingFilter.value ?? '');
+  }
+
+  function ensureAgingFilterPopover() {
+    if (agingFilterPopoverEl) return agingFilterPopoverEl;
+    const wrap = document.createElement('div');
+    wrap.id = 'all-summary-aging-filter-popover';
+    wrap.className = 'aging-filter-popover hidden';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-label', 'Aging filter');
+    wrap.innerHTML = `
+      <div class="aging-filter-popover-title">Aging (days)</div>
+      <label class="aging-filter-field">
+        <span>Condition</span>
+        <select class="aging-filter-op filter-input">
+          <option value="">Any</option>
+          <option value="lt">Less than</option>
+          <option value="lte">Less than or equal to</option>
+          <option value="gt">Greater than</option>
+          <option value="gte">Greater than or equal to</option>
+          <option value="eq">Equal to</option>
+          <option value="neq">Not equal to</option>
+        </select>
+      </label>
+      <label class="aging-filter-field">
+        <span>Value (days)</span>
+        <input type="number" class="aging-filter-value filter-input filter-num" step="1" placeholder="e.g. 30" inputmode="numeric">
+      </label>
+      <div class="aging-filter-popover-actions">
+        <button type="button" class="aging-filter-apply">Apply</button>
+        <button type="button" class="aging-filter-clear secondary">Clear</button>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    agingFilterPopoverEl = wrap;
+
+    wrap.querySelector('.aging-filter-apply')?.addEventListener('click', () => {
+      const opSel = wrap.querySelector('.aging-filter-op');
+      const valInp = wrap.querySelector('.aging-filter-value');
+      allSummaryAgingFilter = {
+        op: String(opSel?.value || '').trim(),
+        value: String(valInp?.value || '').trim()
+      };
+      closeAgingFilterPopover();
+      updateAgingFilterHeaderUi();
+      applyAllSummaryFilters();
+    });
+    wrap.querySelector('.aging-filter-clear')?.addEventListener('click', () => {
+      allSummaryAgingFilter = { op: '', value: '' };
+      syncAgingFilterPopoverFields();
+      closeAgingFilterPopover();
+      updateAgingFilterHeaderUi();
+      applyAllSummaryFilters();
+    });
+    return wrap;
+  }
+
+  function openAgingFilterPopover(anchorBtn) {
+    const pop = ensureAgingFilterPopover();
+    syncAgingFilterPopoverFields();
+    closeAgingFilterPopover();
+    agingFilterPopoverAnchor = anchorBtn;
+    anchorBtn.setAttribute('aria-expanded', 'true');
+    pop.classList.remove('hidden');
+    positionAgingFilterPopover(anchorBtn);
+    requestAnimationFrame(() => positionAgingFilterPopover(anchorBtn));
+
+    agingFilterDocMousedown = (ev) => {
+      const t = ev.target;
+      if (pop.contains(t)) return;
+      if (anchorBtn.contains(t)) return;
+      closeAgingFilterPopover();
+    };
+    document.addEventListener('mousedown', agingFilterDocMousedown, true);
+  }
+
+  function toggleAgingFilterPopover(anchorBtn) {
+    const pop = ensureAgingFilterPopover();
+    const wasOpen = pop && !pop.classList.contains('hidden') && agingFilterPopoverAnchor === anchorBtn;
+    if (wasOpen) {
+      closeAgingFilterPopover();
+      return;
+    }
+    openAgingFilterPopover(anchorBtn);
+  }
+
+  function updateAgingFilterHeaderUi() {
+    const active = agingFilterIsActive();
+    document.querySelectorAll('.aging-filter-trigger').forEach((btn) => {
+      btn.classList.toggle('is-active', active);
+    });
+    document.querySelectorAll('.aging-filter-summary-text').forEach((el) => {
+      el.textContent = getAgingFilterSummaryLabel();
+      el.classList.toggle('has-filter', agingFilterIsActive());
+    });
+  }
+
+  function allSummaryRowMatchesFilters(row, filters) {
+    return allSummaryColumns.every((col) => {
+      if (isAgingColumnName(col)) {
+        return agingNumericPass(row[col]);
+      }
+      const needle = filters[col];
+      if (!needle) return true;
+      return String(row[col] == null ? '' : row[col]).toLowerCase().includes(needle);
+    });
   }
 
   function sumItemwiseItems(items) {
@@ -438,9 +636,63 @@
     }).join('');
   }
 
+  /**
+   * Column order aligned with `GET /inventory-summary/all-tab-summary` SELECT in backend.
+   * Ensures new fields (e.g. TopSalesExecutive) appear in a predictable place even if
+   * the driver returns object keys in a different order.
+   */
+  const ALL_TAB_SUMMARY_COLUMN_ORDER = [
+    'ItemID',
+    'ItemCode',
+    'ItemGroup',
+    'SubGroup',
+    'ItemName',
+    'PhysicalStockInPU',
+    'PurchaseUnit',
+    'PhysicalStockSU',
+    'StockUnit',
+    'ClientRef',
+    'TopSalesExecutive',
+    'IncomingStock',
+    'allocatedstock',
+    'FreeStock',
+    'Manufecturer',
+    'SizeL',
+    'SizeW',
+    'GSM',
+    'Quality',
+    'CertificationType',
+    'LastPONO',
+    'LastPODate',
+    'StockStatus',
+    'LastGRNNO',
+    'LastGRNDate',
+    'Aging'
+  ];
+
+  function resolveAllSummaryColumnKey(rows, preferredName) {
+    const want = String(preferredName || '').toLowerCase();
+    if (!want) return null;
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (!row || typeof row !== 'object') continue;
+      const found = Object.keys(row).find((k) => String(k).toLowerCase() === want);
+      if (found) return found;
+    }
+    return null;
+  }
+
   function getAllSummaryColumns(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
     const cols = [];
     const seen = new Set();
+    ALL_TAB_SUMMARY_COLUMN_ORDER.forEach((pref) => {
+      const key = resolveAllSummaryColumnKey(rows, pref);
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        cols.push(key);
+      }
+    });
     rows.forEach((row) => {
       if (!row || typeof row !== 'object') return;
       Object.keys(row).forEach((key) => {
@@ -455,6 +707,8 @@
 
   function renderAllSummaryTable(rows) {
     if (!Array.isArray(rows) || rows.length === 0) {
+      allSummaryAgingFilter = { op: '', value: '' };
+      closeAgingFilterPopover();
       if (els.allSummaryHead) {
         els.allSummaryHead.innerHTML = '<tr><th class="sticky-header">No data</th></tr>';
       }
@@ -466,8 +720,12 @@
 
     const columns = getAllSummaryColumns(rows);
     allSummaryColumns = columns;
+    allSummaryAgingFilter = { op: '', value: '' };
+    closeAgingFilterPopover();
     allSummaryColumnWidths = calculateAllSummaryColumnWidths(rows, columns);
     if (!columns.length) {
+      allSummaryAgingFilter = { op: '', value: '' };
+      closeAgingFilterPopover();
       if (els.allSummaryHead) {
         els.allSummaryHead.innerHTML = '<tr><th class="sticky-header">No columns</th></tr>';
       }
@@ -478,10 +736,31 @@
     }
 
     if (els.allSummaryHead) {
+      const filterIconSvg = `
+        <svg class="aging-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>`;
       els.allSummaryHead.innerHTML = `
-        <tr>${columns.map((col) => `<th class="sticky-header">${escapeHtml(col)}</th>`).join('')}</tr>
+        <tr>${columns.map((col) => {
+          if (isAgingColumnName(col)) {
+            return `
+            <th class="sticky-header th-aging-header">
+              <div class="aging-header-inner">
+                <span class="aging-header-label">${escapeHtml(col)}</span>
+                <button type="button" class="aging-filter-trigger" title="Number filter for Aging" aria-label="Filter Aging column" aria-expanded="false">
+                  ${filterIconSvg}
+                </button>
+              </div>
+            </th>`;
+          }
+          return `<th class="sticky-header">${escapeHtml(col)}</th>`;
+        }).join('')}</tr>
         <tr class="filter-row">
-          ${columns.map((col) => `
+          ${columns.map((col) => {
+          if (isAgingColumnName(col)) {
+            return `<th class="sticky-filter aging-filter-summary-cell"><span class="aging-filter-summary-text">—</span></th>`;
+          }
+          return `
             <th class="sticky-filter">
               <input
                 type="search"
@@ -490,8 +769,8 @@
                 placeholder="Filter..."
                 autocomplete="off"
               >
-            </th>
-          `).join('')}
+            </th>`;
+        }).join('')}
         </tr>
       `;
     }
@@ -499,6 +778,7 @@
     renderAllSummaryBody(rows, columns);
     applyAllSummaryColumnWidths(columns);
     bindAllSummaryFilterInputs();
+    updateAgingFilterHeaderUi();
   }
 
   function renderAllSummaryBody(rows, columns) {
@@ -508,7 +788,11 @@
       return;
     }
     els.allSummaryBody.innerHTML = rows.map((row) => {
-      return `<tr>${columns.map((col) => `<td>${escapeHtml(row[col] == null ? '' : String(row[col]))}</td>`).join('')}</tr>`;
+      return `<tr>${columns.map((col) => {
+        const cell = escapeHtml(row[col] == null ? '' : String(row[col]));
+        const tdClass = isAgingColumnName(col) ? ' class="col-aging"' : '';
+        return `<td${tdClass}>${cell}</td>`;
+      }).join('')}</tr>`;
     }).join('');
     applyAllSummaryColumnWidths(columns);
   }
@@ -521,7 +805,8 @@
         const cell = String(row?.[col] == null ? '' : row[col]);
         if (cell.length > maxLen) maxLen = cell.length;
       });
-      const widthCh = Math.max(8, Math.min(maxLen + 2, 80));
+      let widthCh = Math.max(8, Math.min(maxLen + 2, 80));
+      if (isAgingColumnName(col)) widthCh = Math.max(widthCh, 22);
       widths[col] = widthCh;
     });
     return widths;
@@ -563,13 +848,8 @@
 
   function applyAllSummaryFilters() {
     const filters = getAllSummaryFilterState();
-    const visible = currentAllSummaryRows.filter((row) => {
-      return allSummaryColumns.every((col) => {
-        const needle = filters[col];
-        if (!needle) return true;
-        return String(row[col] == null ? '' : row[col]).toLowerCase().includes(needle);
-      });
-    });
+    const visible = currentAllSummaryRows.filter((row) => allSummaryRowMatchesFilters(row, filters));
+    updateAgingFilterHeaderUi();
     renderAllSummaryBody(visible, allSummaryColumns);
   }
 
@@ -593,13 +873,7 @@
     }
 
     const filters = getAllSummaryFilterState();
-    const rowsToExport = currentAllSummaryRows.filter((row) => {
-      return allSummaryColumns.every((col) => {
-        const needle = filters[col];
-        if (!needle) return true;
-        return String(row[col] == null ? '' : row[col]).toLowerCase().includes(needle);
-      });
-    });
+    const rowsToExport = currentAllSummaryRows.filter((row) => allSummaryRowMatchesFilters(row, filters));
 
     const headerLine = allSummaryColumns.map((col) => toCsvCell(col)).join(',');
     const bodyLines = rowsToExport.map((row) => allSummaryColumns.map((col) => toCsvCell(row[col])).join(','));
@@ -959,6 +1233,25 @@
 
   setDefaultDates();
   bindFilterInputs();
+
+  if (els.allSummaryPanel) {
+    els.allSummaryPanel.addEventListener('click', (e) => {
+      const btn = e.target.closest('.aging-filter-trigger');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleAgingFilterPopover(btn);
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAgingFilterPopover();
+  });
+  window.addEventListener('resize', () => {
+    if (agingFilterPopoverEl && !agingFilterPopoverEl.classList.contains('hidden') && agingFilterPopoverAnchor) {
+      positionAgingFilterPopover(agingFilterPopoverAnchor);
+    }
+  });
+
   setTab('itemwise');
   loadItemwise();
 })();
