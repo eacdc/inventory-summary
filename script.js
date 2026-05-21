@@ -872,18 +872,46 @@
     applyAllSummaryColumnWidths(columns);
   }
 
+  const ALL_SUMMARY_CELL_FONT = '11px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const ALL_SUMMARY_HEADER_FONT = 'bold 11px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const ALL_SUMMARY_CELL_PADDING_X = 12;
+  const ALL_SUMMARY_FILTER_MIN_WIDTH = 80;
+  const ALL_SUMMARY_WIDTH_BUFFER = 6;
+
+  let allSummaryMeasureCtx = null;
+  function getMeasureCtx() {
+    if (allSummaryMeasureCtx) return allSummaryMeasureCtx;
+    try {
+      const canvas = document.createElement('canvas');
+      allSummaryMeasureCtx = canvas.getContext('2d');
+    } catch (e) {
+      allSummaryMeasureCtx = null;
+    }
+    return allSummaryMeasureCtx;
+  }
+
+  function measureTextPx(text, font) {
+    const ctx = getMeasureCtx();
+    if (!ctx) {
+      return String(text || '').length * 7;
+    }
+    ctx.font = font;
+    return ctx.measureText(String(text == null ? '' : text)).width;
+  }
+
   function calculateAllSummaryColumnWidths(rows, columns) {
     const widths = {};
     columns.forEach((col) => {
-      let maxLen = String(col || '').length;
+      const headerPx = measureTextPx(col, ALL_SUMMARY_HEADER_FONT);
+      let maxBodyPx = 0;
       rows.forEach((row) => {
-        const cell = String(row?.[col] == null ? '' : row[col]);
-        if (cell.length > maxLen) maxLen = cell.length;
+        const cell = row?.[col];
+        const px = measureTextPx(cell, ALL_SUMMARY_CELL_FONT);
+        if (px > maxBodyPx) maxBodyPx = px;
       });
-      const cap = isAgingColumnName(col) ? 14 : 18;
-      let widthCh = Math.max(6, Math.min(maxLen + 2, cap));
-      if (isAgingColumnName(col)) widthCh = Math.max(widthCh, 10);
-      widths[col] = widthCh;
+      const contentPx = Math.max(headerPx, maxBodyPx);
+      const totalPx = Math.ceil(contentPx) + ALL_SUMMARY_CELL_PADDING_X + ALL_SUMMARY_WIDTH_BUFFER;
+      widths[col] = Math.max(totalPx, ALL_SUMMARY_FILTER_MIN_WIDTH);
     });
     return widths;
   }
@@ -891,16 +919,19 @@
   function applyAllSummaryColumnWidths(columns) {
     if (!Array.isArray(columns) || !columns.length) return;
     if (!els.allSummaryHead || !els.allSummaryBody) return;
+    const setCellWidth = (cell, width) => {
+      const w = `${width}px`;
+      cell.style.width = w;
+      cell.style.minWidth = w;
+      cell.style.maxWidth = w;
+    };
     const headerRows = els.allSummaryHead.querySelectorAll('tr');
     headerRows.forEach((row) => {
       const cells = row.children;
       for (let i = 0; i < cells.length; i += 1) {
         const col = columns[i];
         const width = allSummaryColumnWidths[col];
-        if (width) {
-          cells[i].style.width = 'auto';
-          cells[i].style.maxWidth = `${width}ch`;
-        }
+        if (width) setCellWidth(cells[i], width);
       }
     });
     const bodyRows = els.allSummaryBody.querySelectorAll('tr');
@@ -909,10 +940,7 @@
       for (let i = 0; i < cells.length; i += 1) {
         const col = columns[i];
         const width = allSummaryColumnWidths[col];
-        if (width) {
-          cells[i].style.width = 'auto';
-          cells[i].style.maxWidth = `${width}ch`;
-        }
+        if (width) setCellWidth(cells[i], width);
       }
     });
   }

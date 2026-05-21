@@ -157,7 +157,7 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   height: 760px;
   max-height: 760px;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   width: 100%;
   max-width: 100%;
   margin: 0;
@@ -303,10 +303,14 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .empty { text-align: center; color: var(--muted); padding: 18px 10px; }
 .hidden { display: none; }
 
+#all-summary-panel .table-wrap {
+  overflow-x: auto;
+}
+
 #all-summary-panel .data-table {
   table-layout: fixed;
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  min-width: max-content;
 }
 
 #all-summary-panel .data-table th,
@@ -322,19 +326,6 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   padding-top: 5px;
   padding-bottom: 5px;
   font-size: 11px;
-}
-
-@media (max-width: 1280px) {
-  /* On smaller screens, allow horizontal pan instead of row growth/wrapping. */
-  #all-summary-panel .table-wrap,
-  #all-summary-panel .table-scroll-all {
-    overflow-x: auto;
-  }
-
-  #all-summary-panel .data-table {
-    width: max-content;
-    min-width: 1400px;
-  }
 }
 
 #all-summary-panel .data-table td.col-aging {
