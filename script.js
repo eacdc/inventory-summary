@@ -1439,7 +1439,7 @@
     node.months = monthMap;
     const children = Array.from(node.children.values())
       .map((c) => finalizeCategorywiseNode(c, months))
-      .sort((a, b) => b.totalKg - a.totalKg || a.key.localeCompare(b.key));
+      .sort((a, b) => b.totalValue - a.totalValue || b.totalKg - a.totalKg || a.key.localeCompare(b.key));
     node.children = children;
     return node;
   }
@@ -1490,7 +1490,7 @@
 
     const tree = Array.from(root.values())
       .map((n) => finalizeCategorywiseNode(n, months))
-      .sort((a, b) => b.totalKg - a.totalKg || a.key.localeCompare(b.key));
+      .sort((a, b) => b.totalValue - a.totalValue || b.totalKg - a.totalKg || a.key.localeCompare(b.key));
 
     return { months, tree };
   }
