@@ -455,3 +455,147 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .aging-filter-popover-actions button.secondary:hover {
   border-color: var(--muted);
 }
+
+/* Categorywise Issued */
+.categorywise-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.categorywise-card {
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 220px;
+  background: #0b1220;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.categorywise-card.is-uncategorized {
+  opacity: 0.72;
+  border-style: dashed;
+  background: #111827;
+}
+
+.categorywise-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.categorywise-card-kg {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  color: #93c5fd;
+}
+
+.categorywise-card-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.categorywise-card-value {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.categorywise-table {
+  min-width: max-content;
+}
+
+.categorywise-table .sticky-filter {
+  top: 42px;
+}
+
+.categorywise-table th.categorywise-label-col,
+.categorywise-table td.categorywise-label-cell {
+  text-align: left;
+  white-space: nowrap;
+  min-width: 240px;
+}
+
+.categorywise-indent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.categorywise-indent.depth-0 { padding-left: 0; }
+.categorywise-indent.depth-1 { padding-left: 18px; }
+.categorywise-indent.depth-2 { padding-left: 36px; }
+.categorywise-indent.depth-3 { padding-left: 54px; }
+.categorywise-indent.depth-4 { padding-left: 72px; }
+
+.categorywise-label {
+  font-weight: inherit;
+}
+
+.toggle-btn-category {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  flex-shrink: 0;
+}
+
+.data-table tr.categorywise-grand-total td {
+  background: rgba(59, 130, 246, 0.18);
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent);
+}
+
+.data-table tr.categorywise-row[data-depth="1"] td {
+  background: rgba(30, 41, 59, 0.65);
+}
+
+.data-table tr.categorywise-row[data-depth="2"] td {
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.data-table tr.categorywise-row[data-depth="3"] td,
+.data-table tr.categorywise-row[data-depth="4"] td {
+  background: transparent;
+  font-weight: 400;
+}
+
+.categorywise-total {
+  font-weight: 600;
+}
+
+.categorywise-subhead {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.categorywise-cell-pair {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.categorywise-cell-kg {
+  font-variant-numeric: tabular-nums;
+}
+
+.categorywise-cell-val {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tr.categorywise-grand-total .categorywise-cell-val {
+  color: #cbd5e1;
+}

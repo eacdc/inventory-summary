@@ -21,6 +21,7 @@
           <button type="button" id="tab-pono-noclient" class="tab">Top 200 PO (No Client)</button>
           <button type="button" id="tab-all-summary" class="tab">All Tab Summary</button>
           <button type="button" id="tab-stock-buffer" class="tab">Stock search (buffer)</button>
+          <button type="button" id="tab-categorywise" class="tab">Categorywise Issued</button>
           <a
             class="tab tab-external"
             href="https://client-wise-paper-consumption.onrender.com"
@@ -211,6 +212,24 @@
               <tbody id="all-summary-body">
                 <tr>
                   <td class="empty">Load to view all tab summary.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="categorywise-panel" class="hidden">
+          <div id="categorywise-cards" class="categorywise-cards"></div>
+          <div class="table-wrap table-scroll table-scroll-all">
+            <table class="data-table categorywise-table">
+              <thead id="categorywise-head">
+                <tr>
+                  <th class="sticky-header">Load to view categorywise issued.</th>
+                </tr>
+              </thead>
+              <tbody id="categorywise-body">
+                <tr>
+                  <td class="empty">Load to view categorywise issued (stock out by business category).</td>
                 </tr>
               </tbody>
             </table>

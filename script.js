@@ -10,11 +10,16 @@
     tabPonoNoClient: document.getElementById('tab-pono-noclient'),
     tabAllSummary: document.getElementById('tab-all-summary'),
     tabStockBuffer: document.getElementById('tab-stock-buffer'),
+    tabCategorywise: document.getElementById('tab-categorywise'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
     poPanel: document.getElementById('po-noclient-panel'),
     allSummaryPanel: document.getElementById('all-summary-panel'),
     stockBufferPanel: document.getElementById('stock-buffer-panel'),
+    categorywisePanel: document.getElementById('categorywise-panel'),
+    categorywiseCards: document.getElementById('categorywise-cards'),
+    categorywiseHead: document.getElementById('categorywise-head'),
+    categorywiseBody: document.getElementById('categorywise-body'),
     stockBufferDeckle: document.getElementById('stock-buffer-deckle'),
     stockBufferGsm: document.getElementById('stock-buffer-gsm'),
     stockBufferQuality: document.getElementById('stock-buffer-quality'),
@@ -66,12 +71,18 @@
   let currentPoRows = [];
   let currentAllSummaryRows = [];
   let currentStockBufferRows = [];
+  let currentCategorywiseDetail = [];
+  let currentCategorywiseSummary = [];
+  let categorywiseMonths = [];
+  let categorywiseTree = [];
+  let categorywiseHeadMonthsKey = '';
+  let categorywiseFilterState = { label: '', months: {}, totalKg: '' };
   let stockBufferSearchInFlight = false;
   let allSummaryColumns = [];
   let allSummaryColumnWidths = {};
   const expandedGroups = new Set();
   const expandedClientGroups = new Set();
-
+  const expandedCategoryNodes = new Set();
   /** All Tab Summary: numeric filter for the Aging column (days). */
   let allSummaryAgingFilter = { op: '', value: '' };
   let agingFilterPopoverEl = null;
@@ -123,26 +134,33 @@
     const isPo = which === 'po-noclient';
     const isAllSummary = which === 'all-summary';
     const isStockBuffer = which === 'stock-buffer';
+    const isCategorywise = which === 'categorywise';
 
-    activeTab = isItemwise
-      ? 'itemwise'
-      : (isClientwise ? 'clientwise' : (isPo ? 'po-noclient' : (isAllSummary ? 'all-summary' : (isStockBuffer ? 'stock-buffer' : 'itemwise'))));
+    if (isItemwise) activeTab = 'itemwise';
+    else if (isClientwise) activeTab = 'clientwise';
+    else if (isPo) activeTab = 'po-noclient';
+    else if (isAllSummary) activeTab = 'all-summary';
+    else if (isStockBuffer) activeTab = 'stock-buffer';
+    else if (isCategorywise) activeTab = 'categorywise';
+    else activeTab = 'itemwise';
 
     if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
     if (els.tabClientwise) els.tabClientwise.classList.toggle('active', isClientwise);
     if (els.tabPonoNoClient) els.tabPonoNoClient.classList.toggle('active', isPo);
     if (els.tabAllSummary) els.tabAllSummary.classList.toggle('active', isAllSummary);
     if (els.tabStockBuffer) els.tabStockBuffer.classList.toggle('active', isStockBuffer);
+    if (els.tabCategorywise) els.tabCategorywise.classList.toggle('active', isCategorywise);
 
     if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
     if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
     if (els.poPanel) els.poPanel.classList.toggle('hidden', !isPo);
     if (els.allSummaryPanel) els.allSummaryPanel.classList.toggle('hidden', !isAllSummary);
     if (els.stockBufferPanel) els.stockBufferPanel.classList.toggle('hidden', !isStockBuffer);
+    if (els.categorywisePanel) els.categorywisePanel.classList.toggle('hidden', !isCategorywise);
 
     if (els.btnLoad) els.btnLoad.classList.toggle('hidden', isStockBuffer);
 
-    toggleDateFilters(isItemwise || isClientwise || isPo);
+    toggleDateFilters(isItemwise || isClientwise || isPo || isCategorywise);
     updateAllSummaryPresetToolbar();
   }
 
@@ -1143,6 +1161,49 @@
       setStatus(`Exported ${rows.length} row(s) (stock search).`);
       return;
     }
+
+    if (activeTab === 'categorywise') {
+      const { months, rows } = getCategorywiseExportLeafRows();
+      if (!rows.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = [
+        'Business Category',
+        'Sales Person',
+        'Client',
+        'Job',
+        'Item Name',
+        ...months.flatMap((m) => {
+          const label = formatMonthKeyLabel(m);
+          return [`${label} KG`, `${label} Value`];
+        }),
+        'Total (KG)',
+        'Total Value'
+      ];
+      const lines = [header.map(toCsvCell).join(',')];
+      rows.forEach((r) => {
+        lines.push(
+          [
+            r.category,
+            r.salesPerson,
+            r.client,
+            r.job,
+            r.item,
+            ...months.flatMap((m) => {
+              const cell = r.months[m] || { kg: 0, value: 0 };
+              return [cell.kg ?? 0, cell.value ?? 0];
+            }),
+            r.totalKg,
+            r.totalValue
+          ]
+            .map(toCsvCell)
+            .join(',')
+        );
+      });
+      downloadCsvFile(`inventory-categorywise-issued-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${rows.length} leaf row(s) (categorywise issued).`);
+    }
   }
 
   function exportAllSummaryToExcel() {
@@ -1312,6 +1373,514 @@
       g.items.sort((a, b) => num(b.closingStockKg) - num(a.closingStockKg));
     });
     return grouped;
+  }
+
+  const CATEGORYWISE_UNTAGGED = 'Untagged';
+  const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function categorywiseLabelOrUntagged(value) {
+    const s = String(value == null ? '' : value).trim();
+    return s || CATEGORYWISE_UNTAGGED;
+  }
+
+  function issueDateToMonthKey(issueDate) {
+    const s = normalizeDateString(issueDate);
+    if (!s || s.length < 7) return null;
+    return s.slice(0, 7);
+  }
+
+  function formatMonthKeyLabel(ym) {
+    const parts = String(ym || '').split('-');
+    if (parts.length < 2) return String(ym || '');
+    const y = parts[0];
+    const m = Number(parts[1]);
+    if (!Number.isFinite(m) || m < 1 || m > 12) return String(ym || '');
+    return `${MONTH_SHORT[m - 1]} ${y}`;
+  }
+
+  function emptyMonthMap(months) {
+    const map = {};
+    months.forEach((m) => {
+      map[m] = { kg: 0, value: 0 };
+    });
+    return map;
+  }
+
+  function ensureCategorywiseChild(parentMap, key) {
+    if (!parentMap.has(key)) {
+      parentMap.set(key, {
+        key,
+        months: {},
+        totalKg: 0,
+        totalValue: 0,
+        children: new Map()
+      });
+    }
+    return parentMap.get(key);
+  }
+
+  function addMetricsToNode(node, monthKey, kg, value) {
+    if (!monthKey) return;
+    const cur = node.months[monthKey] || { kg: 0, value: 0 };
+    node.months[monthKey] = {
+      kg: num(cur.kg) + kg,
+      value: num(cur.value) + value
+    };
+    node.totalKg += kg;
+    node.totalValue += value;
+  }
+
+  function finalizeCategorywiseNode(node, months) {
+    const monthMap = emptyMonthMap(months);
+    Object.keys(node.months || {}).forEach((k) => {
+      const cell = node.months[k] || {};
+      monthMap[k] = { kg: num(cell.kg), value: num(cell.value) };
+    });
+    node.months = monthMap;
+    const children = Array.from(node.children.values())
+      .map((c) => finalizeCategorywiseNode(c, months))
+      .sort((a, b) => b.totalKg - a.totalKg || a.key.localeCompare(b.key));
+    node.children = children;
+    return node;
+  }
+
+  function buildCategorywisePivot(detailRows) {
+    const rows = Array.isArray(detailRows) ? detailRows : [];
+    const monthSet = new Set();
+    rows.forEach((r) => {
+      const mk = issueDateToMonthKey(r.issueDate);
+      if (mk) monthSet.add(mk);
+    });
+    const months = Array.from(monthSet).sort();
+
+    const root = new Map();
+    rows.forEach((r) => {
+      const monthKey = issueDateToMonthKey(r.issueDate);
+      if (!monthKey) return;
+      const kg = num(r.stockOutKg);
+      const value = num(r.stockOutValue);
+      if (!kg && !value) return;
+
+      const category = categorywiseLabelOrUntagged(r.businessCategory);
+      const salesPerson = categorywiseLabelOrUntagged(r.salesPerson);
+      const client = categorywiseLabelOrUntagged(r.clientName);
+      const jobNo = String(r.jobBookingNo == null ? '' : r.jobBookingNo).trim();
+      const jobName = String(r.jobName == null ? '' : r.jobName).trim();
+      let jobLabel = CATEGORYWISE_UNTAGGED;
+      if (jobNo && jobName) jobLabel = `${jobNo} — ${jobName}`;
+      else if (jobNo) jobLabel = jobNo;
+      else if (jobName) jobLabel = jobName;
+      const item = categorywiseLabelOrUntagged(r.itemName);
+
+      const catNode = ensureCategorywiseChild(root, category);
+      addMetricsToNode(catNode, monthKey, kg, value);
+
+      const spNode = ensureCategorywiseChild(catNode.children, salesPerson);
+      addMetricsToNode(spNode, monthKey, kg, value);
+
+      const clientNode = ensureCategorywiseChild(spNode.children, client);
+      addMetricsToNode(clientNode, monthKey, kg, value);
+
+      const jobNode = ensureCategorywiseChild(clientNode.children, jobLabel);
+      addMetricsToNode(jobNode, monthKey, kg, value);
+
+      const itemNode = ensureCategorywiseChild(jobNode.children, item);
+      addMetricsToNode(itemNode, monthKey, kg, value);
+    });
+
+    const tree = Array.from(root.values())
+      .map((n) => finalizeCategorywiseNode(n, months))
+      .sort((a, b) => b.totalKg - a.totalKg || a.key.localeCompare(b.key));
+
+    return { months, tree };
+  }
+
+  function sumCategorywiseTreeMonths(tree, months) {
+    const totals = emptyMonthMap(months);
+    let grandKg = 0;
+    let grandValue = 0;
+    (tree || []).forEach((node) => {
+      months.forEach((m) => {
+        const cell = node.months[m] || {};
+        totals[m].kg += num(cell.kg);
+        totals[m].value += num(cell.value);
+      });
+      grandKg += num(node.totalKg);
+      grandValue += num(node.totalValue);
+    });
+    return { months: totals, totalKg: grandKg, totalValue: grandValue };
+  }
+
+  function formatIndicativeValue(v) {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0
+    }).format(Math.round(num(v)));
+  }
+
+  function renderCategorywiseMetricPair(kg, value) {
+    return `<span class="categorywise-cell-pair" title="KG and indicative value">
+      <span class="categorywise-cell-kg">${fmt(kg)} kg</span>
+      <span class="categorywise-cell-val">${escapeHtml(formatIndicativeValue(value))}</span>
+    </span>`;
+  }
+
+  function renderCategorywiseCards(summary) {
+    if (!els.categorywiseCards) return;
+    const list = Array.isArray(summary) ? summary : [];
+    if (!list.length) {
+      els.categorywiseCards.innerHTML = '';
+      return;
+    }
+
+    els.categorywiseCards.innerHTML = list
+      .map((s) => {
+        const cat = String(s.businessCategory || '').trim() || CATEGORYWISE_UNTAGGED;
+        const isUncat = cat.toLowerCase() === 'uncategorized';
+        const tip = isUncat
+          ? ' title="Issues not tagged to a job — data-quality signal, not a business segment."'
+          : '';
+        return `
+          <div class="categorywise-card${isUncat ? ' is-uncategorized' : ''}"${tip}>
+            <div class="categorywise-card-title">${escapeHtml(cat)}</div>
+            <div class="categorywise-card-kg">${fmt(s.stockOutKg)} kg</div>
+            <div class="categorywise-card-meta">
+              <span>${fmt(s.issueLines)} lines</span>
+              <span>${fmt(s.jobs)} jobs</span>
+            </div>
+            <div class="categorywise-card-value" title="Indicative value (latest purchase rate; ₹70/kg fallback)">
+              Indicative: ${escapeHtml(formatIndicativeValue(s.stockOutValue))}
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderCategorywiseMonthCells(monthMap, months) {
+    return months
+      .map((m) => {
+        const cell = monthMap[m] || { kg: 0, value: 0 };
+        return `<td class="numeric">${renderCategorywiseMetricPair(cell.kg, cell.value)}</td>`;
+      })
+      .join('');
+  }
+
+  function resetCategorywiseFilters(months) {
+    const monthFilters = {};
+    (months || []).forEach((m) => {
+      monthFilters[m] = '';
+    });
+    categorywiseFilterState = { label: '', months: monthFilters, totalKg: '' };
+    categorywiseHeadMonthsKey = '';
+  }
+
+  function syncCategorywiseMonthFilterKeys(months) {
+    const next = {};
+    (months || []).forEach((m) => {
+      next[m] = categorywiseFilterState.months[m] || '';
+    });
+    categorywiseFilterState.months = next;
+  }
+
+  function readCategorywiseFiltersFromDom() {
+    if (!els.categorywiseHead) return;
+    const labelInp = els.categorywiseHead.querySelector('[data-cw-filter="label"]');
+    if (labelInp) {
+      categorywiseFilterState.label = String(labelInp.value || '').trim();
+    }
+    const totalInp = els.categorywiseHead.querySelector('[data-cw-filter="total"]');
+    if (totalInp) {
+      categorywiseFilterState.totalKg = totalInp.value ?? '';
+    }
+    els.categorywiseHead.querySelectorAll('[data-cw-filter-month]').forEach((inp) => {
+      const m = String(inp.getAttribute('data-cw-filter-month') || '');
+      if (!m) return;
+      categorywiseFilterState.months[m] = inp.value ?? '';
+    });
+  }
+
+  function categorywiseFiltersActive(f) {
+    if (String(f.label || '').trim()) return true;
+    if (String(f.totalKg ?? '').trim() !== '') return true;
+    return Object.values(f.months || {}).some((v) => String(v ?? '').trim() !== '');
+  }
+
+  function categorywiseNodePassesNumeric(node, months, f) {
+    if (!numMinPass(node.totalKg, f.totalKg)) return false;
+    for (let i = 0; i < months.length; i += 1) {
+      const m = months[i];
+      const minRaw = f.months[m];
+      if (String(minRaw ?? '').trim() === '') continue;
+      const cell = node.months[m] || { kg: 0 };
+      if (!numMinPass(cell.kg, minRaw)) return false;
+    }
+    return true;
+  }
+
+  function rebuildCategorywiseNodeFromChildren(key, children, months) {
+    const rebuilt = {
+      key,
+      children,
+      months: emptyMonthMap(months),
+      totalKg: 0,
+      totalValue: 0
+    };
+    children.forEach((c) => {
+      months.forEach((m) => {
+        const cell = c.months[m] || { kg: 0, value: 0 };
+        rebuilt.months[m].kg += num(cell.kg);
+        rebuilt.months[m].value += num(cell.value);
+      });
+      rebuilt.totalKg += num(c.totalKg);
+      rebuilt.totalValue += num(c.totalValue);
+    });
+    return rebuilt;
+  }
+
+  function filterCategorywiseTree(nodes, months, f, pathLabels) {
+    const out = [];
+    (nodes || []).forEach((node) => {
+      const labels = pathLabels.concat([node.key]);
+      const kids = Array.isArray(node.children) ? node.children : [];
+      if (kids.length) {
+        const filteredKids = filterCategorywiseTree(kids, months, f, labels);
+        if (!filteredKids.length) return;
+        out.push(rebuildCategorywiseNodeFromChildren(node.key, filteredKids, months));
+        return;
+      }
+      const labelNeedle = String(f.label || '').trim().toLowerCase();
+      const labelOk =
+        !labelNeedle || labels.some((l) => String(l).toLowerCase().includes(labelNeedle));
+      if (labelOk && categorywiseNodePassesNumeric(node, months, f)) {
+        out.push(node);
+      }
+    });
+    return out;
+  }
+
+  function getFilteredCategorywiseTree() {
+    const months = categorywiseMonths;
+    const f = categorywiseFilterState;
+    if (!categorywiseFiltersActive(f)) return categorywiseTree;
+    return filterCategorywiseTree(categorywiseTree, months, f, []);
+  }
+
+  function renderCategorywiseTreeRows(nodes, months, depth, parentPath) {
+    let html = '';
+    (nodes || []).forEach((node) => {
+      const path = parentPath ? `${parentPath}||${node.key}` : node.key;
+      const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+      const expanded = expandedCategoryNodes.has(path);
+      const toggle = hasChildren
+        ? `<button type="button" class="toggle-btn toggle-btn-category" data-path="${escapeHtml(path)}">${expanded ? '−' : '+'}</button>`
+        : '';
+      const rowClass = depth === 0 ? 'group-row categorywise-row' : 'categorywise-row';
+      html += `
+        <tr class="${rowClass}" data-depth="${depth}">
+          <td class="categorywise-label-cell">
+            <span class="categorywise-indent depth-${depth}">${toggle}<span class="categorywise-label">${escapeHtml(node.key)}</span></span>
+          </td>
+          ${renderCategorywiseMonthCells(node.months, months)}
+          <td class="numeric categorywise-total">${renderCategorywiseMetricPair(node.totalKg, node.totalValue)}</td>
+        </tr>
+      `;
+      if (hasChildren && expanded) {
+        html += renderCategorywiseTreeRows(node.children, months, depth + 1, path);
+      }
+    });
+    return html;
+  }
+
+  function renderCategorywiseHead(months) {
+    if (!els.categorywiseHead) return;
+    const key = months.join(',');
+    syncCategorywiseMonthFilterKeys(months);
+
+    if (key === categorywiseHeadMonthsKey && els.categorywiseHead.querySelector('.filter-row')) {
+      return;
+    }
+    categorywiseHeadMonthsKey = key;
+
+    if (!months.length) {
+      els.categorywiseHead.innerHTML =
+        '<tr><th class="sticky-header">Category / Sales / Client / Job / Item</th><th class="sticky-header">Total</th></tr>';
+      return;
+    }
+
+    const monthHeaders = months
+      .map(
+        (m) =>
+          `<th class="sticky-header">${escapeHtml(formatMonthKeyLabel(m))}<div class="categorywise-subhead">KG · Value</div></th>`
+      )
+      .join('');
+    const monthFilters = months
+      .map((m) => {
+        const val = escapeHtml(categorywiseFilterState.months[m] || '');
+        return `<th class="sticky-filter"><input type="number" step="1" class="filter-input filter-num" data-cw-filter-month="${escapeHtml(m)}" placeholder="Min kg" inputmode="numeric" value="${val}"></th>`;
+      })
+      .join('');
+    const labelVal = escapeHtml(categorywiseFilterState.label || '');
+    const totalVal = escapeHtml(categorywiseFilterState.totalKg || '');
+
+    els.categorywiseHead.innerHTML = `
+      <tr>
+        <th class="sticky-header categorywise-label-col">Category / Sales / Client / Job / Item</th>
+        ${monthHeaders}
+        <th class="sticky-header">Total<div class="categorywise-subhead">KG · Value</div></th>
+      </tr>
+      <tr class="filter-row">
+        <th class="sticky-filter"><input type="search" class="filter-input filter-text" data-cw-filter="label" placeholder="Filter…" autocomplete="off" value="${labelVal}"></th>
+        ${monthFilters}
+        <th class="sticky-filter"><input type="number" step="1" class="filter-input filter-num" data-cw-filter="total" placeholder="Min kg" inputmode="numeric" value="${totalVal}"></th>
+      </tr>
+    `;
+  }
+
+  function renderCategorywiseBody(months, tree) {
+    if (!els.categorywiseBody) return;
+    const colCount = Math.max(2, months.length + 2);
+
+    if (!months.length && !tree.length) {
+      els.categorywiseBody.innerHTML =
+        '<tr><td colspan="2" class="empty">No categorywise issued rows for this date range.</td></tr>';
+      return;
+    }
+
+    if (!tree.length) {
+      els.categorywiseBody.innerHTML = `<tr><td colspan="${colCount}" class="empty">No rows match filters.</td></tr>`;
+      return;
+    }
+
+    const grand = sumCategorywiseTreeMonths(tree, months);
+    let html = `
+      <tr class="categorywise-grand-total">
+        <td class="categorywise-label-cell"><strong>Grand Total</strong></td>
+        ${renderCategorywiseMonthCells(grand.months, months)}
+        <td class="numeric categorywise-total"><strong>${renderCategorywiseMetricPair(grand.totalKg, grand.totalValue)}</strong></td>
+      </tr>
+    `;
+    html += renderCategorywiseTreeRows(tree, months, 0, '');
+    els.categorywiseBody.innerHTML = html;
+
+    els.categorywiseBody.querySelectorAll('.toggle-btn-category').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const path = String(btn.dataset.path || '');
+        if (!path) return;
+        if (expandedCategoryNodes.has(path)) expandedCategoryNodes.delete(path);
+        else expandedCategoryNodes.add(path);
+        renderCategorywiseBody(categorywiseMonths, getFilteredCategorywiseTree());
+      });
+    });
+  }
+
+  function renderCategorywise() {
+    const months = categorywiseMonths;
+    renderCategorywiseCards(currentCategorywiseSummary);
+
+    if (!els.categorywiseHead || !els.categorywiseBody) return;
+
+    if (!months.length && !categorywiseTree.length) {
+      categorywiseHeadMonthsKey = '';
+      els.categorywiseHead.innerHTML =
+        '<tr><th class="sticky-header">Category / Sales / Client / Job / Item</th><th class="sticky-header">Total</th></tr>';
+      els.categorywiseBody.innerHTML =
+        '<tr><td colspan="2" class="empty">No categorywise issued rows for this date range.</td></tr>';
+      return;
+    }
+
+    renderCategorywiseHead(months);
+    renderCategorywiseBody(months, getFilteredCategorywiseTree());
+  }
+
+  function getCategorywiseExportLeafRows() {
+    const months = categorywiseMonths;
+    const out = [];
+    const tree = getFilteredCategorywiseTree();
+
+    function walk(nodes, ancestry) {
+      (nodes || []).forEach((node) => {
+        const next = ancestry.concat([node.key]);
+        const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+        if (!hasChildren) {
+          const row = {
+            category: next[0] || '',
+            salesPerson: next[1] || '',
+            client: next[2] || '',
+            job: next[3] || '',
+            item: next[4] || node.key,
+            months: node.months,
+            totalKg: node.totalKg,
+            totalValue: node.totalValue
+          };
+          out.push(row);
+          return;
+        }
+        walk(node.children, next);
+      });
+    }
+
+    walk(tree, []);
+    return { months, rows: out };
+  }
+
+  async function loadCategorywiseIssued() {
+    const fromDate = String(els.fromDate.value || '').trim();
+    const toDate = String(els.toDate.value || '').trim();
+    if (!fromDate || !toDate) {
+      setStatus('Please select both from and to date.', true);
+      return;
+    }
+    if (fromDate > toDate) {
+      setStatus('From date cannot be after to date.', true);
+      return;
+    }
+
+    setStatus('Loading...');
+    els.btnLoad.disabled = true;
+    try {
+      const url = new URL(`${API_BASE}/inventory-summary/categorywise-issued`);
+      url.searchParams.set('database', els.database.value || 'KOL');
+      url.searchParams.set('fromDate', fromDate);
+      url.searchParams.set('toDate', toDate);
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+
+      currentCategorywiseDetail = Array.isArray(data.detail) ? data.detail : [];
+      currentCategorywiseSummary = Array.isArray(data.summary) ? data.summary : [];
+      expandedCategoryNodes.clear();
+
+      const pivot = buildCategorywisePivot(currentCategorywiseDetail);
+      categorywiseMonths = pivot.months;
+      categorywiseTree = pivot.tree;
+      resetCategorywiseFilters(categorywiseMonths);
+      renderCategorywise();
+      setStatus(
+        `Loaded ${currentCategorywiseDetail.length} issue line(s) across ${categorywiseTree.length} categor${
+          categorywiseTree.length === 1 ? 'y' : 'ies'
+        }.`
+      );
+    } catch (e) {
+      currentCategorywiseDetail = [];
+      currentCategorywiseSummary = [];
+      categorywiseMonths = [];
+      categorywiseTree = [];
+      expandedCategoryNodes.clear();
+      resetCategorywiseFilters([]);
+      renderCategorywise();
+      setStatus(e.message || 'Failed to load categorywise issued.', true);
+    } finally {
+      els.btnLoad.disabled = false;
+    }
   }
 
   async function loadItemwise() {
@@ -1559,6 +2128,12 @@
       setTab('stock-buffer');
     });
   }
+  if (els.tabCategorywise) {
+    els.tabCategorywise.addEventListener('click', () => {
+      setTab('categorywise');
+      loadCategorywiseIssued();
+    });
+  }
   if (els.stockBufferSearchForm) {
     els.stockBufferSearchForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1575,6 +2150,7 @@
     if (activeTab === 'clientwise') return loadClientwise();
     if (activeTab === 'po-noclient') return loadPoNoClientTop200();
     if (activeTab === 'all-summary') return loadAllTabSummary();
+    if (activeTab === 'categorywise') return loadCategorywiseIssued();
     if (activeTab === 'stock-buffer') return;
     return loadItemwise();
   });
@@ -1615,6 +2191,15 @@
         if (activeTab === 'po-noclient') renderPoTable(currentPoRows);
       });
     });
+    if (els.categorywiseHead) {
+      els.categorywiseHead.addEventListener('input', (e) => {
+        const t = e.target;
+        if (!t || !t.classList || !t.classList.contains('filter-input')) return;
+        if (activeTab !== 'categorywise') return;
+        readCategorywiseFiltersFromDom();
+        renderCategorywiseBody(categorywiseMonths, getFilteredCategorywiseTree());
+      });
+    }
   }
 
   setDefaultDates();
