@@ -76,18 +76,7 @@
       client: document.getElementById('filter-jw-client'),
       required: document.getElementById('filter-jw-required'),
       issued: document.getElementById('filter-jw-issued'),
-      unit: document.getElementById('filter-jw-unit'),
-      excess: document.getElementById('filter-jw-excess'),
-      varPct: document.getElementById('filter-jw-varpct'),
-      reqGsm: document.getElementById('filter-jw-reqgsm'),
-      issuedGsm: document.getElementById('filter-jw-issuedgsm'),
-      reqJobTotal: document.getElementById('filter-jw-reqjobtotal'),
-      specMatch: document.getElementById('filter-jw-specmatch'),
-      issuedStock: document.getElementById('filter-jw-issuedstock'),
-      stockUnit: document.getElementById('filter-jw-stockunit'),
-      issuedCost: document.getElementById('filter-jw-issuedcost'),
-      reqSource: document.getElementById('filter-jw-reqsource'),
-      unplanned: document.getElementById('filter-jw-unplanned')
+      varPct: document.getElementById('filter-jw-varpct')
     }
   };
 
@@ -1253,19 +1242,8 @@
         'Job Name',
         'Client',
         'Required as per Job',
-        'Issued Qty (same unit)',
-        'Unit',
-        'Excess/(Short)',
-        'Var %',
-        'Req GSM',
-        'Issued GSM',
-        'Req Job Total',
-        'Spec Match',
-        'Issued Qty (Stock Unit)',
-        'Stock Unit',
-        'Issued Cost',
-        'Req Source',
-        'Unplanned Issue'
+        'Issued Qty (In same unit as required)',
+        'Var %'
       ];
       const lines = [header.map(toCsvCell).join(',')];
       rows.forEach((r) => {
@@ -1279,18 +1257,7 @@
             r.clientName,
             r.requiredQty,
             r.issuedQty,
-            r.unit,
-            r.excessShort,
-            r.varPct,
-            r.reqGsm,
-            r.issuedGsm,
-            r.reqJobTotal,
-            r.specMatch,
-            r.issuedQtyStock,
-            r.stockUnit,
-            r.issuedCost,
-            r.reqSource,
-            r.unplannedIssue
+            r.varPct
           ]
             .map(toCsvCell)
             .join(',')
@@ -1978,7 +1945,7 @@
     }
   }
 
-  const JOBWISE_COLSPAN = 21;
+  const JOBWISE_COLSPAN = 9;
 
   function fmtDec(v, digits) {
     const d = digits == null ? 3 : digits;
@@ -2005,18 +1972,7 @@
       client: String(f.client?.value || '').trim().toLowerCase(),
       required: f.required?.value ?? '',
       issued: f.issued?.value ?? '',
-      unit: String(f.unit?.value || '').trim().toLowerCase(),
-      excess: f.excess?.value ?? '',
-      varPct: f.varPct?.value ?? '',
-      reqGsm: f.reqGsm?.value ?? '',
-      issuedGsm: f.issuedGsm?.value ?? '',
-      reqJobTotal: f.reqJobTotal?.value ?? '',
-      specMatch: String(f.specMatch?.value || '').trim().toLowerCase(),
-      issuedStock: f.issuedStock?.value ?? '',
-      stockUnit: String(f.stockUnit?.value || '').trim().toLowerCase(),
-      issuedCost: f.issuedCost?.value ?? '',
-      reqSource: String(f.reqSource?.value || '').trim().toLowerCase(),
-      unplanned: f.unplanned?.value ?? ''
+      varPct: f.varPct?.value ?? ''
     };
   }
 
@@ -2031,18 +1987,7 @@
       textIncludes(r.clientName, f.client) &&
       numMinPass(r.requiredQty, f.required) &&
       numMinPass(r.issuedQty, f.issued) &&
-      textIncludes(r.unit, f.unit) &&
-      numMinPass(r.excessShort, f.excess) &&
-      numMinPass(r.varPct, f.varPct) &&
-      numMinPass(r.reqGsm, f.reqGsm) &&
-      numMinPass(r.issuedGsm, f.issuedGsm) &&
-      numMinPass(r.reqJobTotal, f.reqJobTotal) &&
-      textIncludes(r.specMatch, f.specMatch) &&
-      numMinPass(r.issuedQtyStock, f.issuedStock) &&
-      textIncludes(r.stockUnit, f.stockUnit) &&
-      numMinPass(r.issuedCost, f.issuedCost) &&
-      textIncludes(r.reqSource, f.reqSource) &&
-      numMinPass(r.unplannedIssue, f.unplanned)
+      numMinPass(r.varPct, f.varPct)
     );
   }
 
@@ -2055,21 +2000,25 @@
     return (rows || []).reduce(
       (acc, r) => ({
         requiredQty: acc.requiredQty + num(r.requiredQty),
-        issuedQty: acc.issuedQty + num(r.issuedQty),
-        issuedQtyStock: acc.issuedQtyStock + num(r.issuedQtyStock),
-        issuedCost: acc.issuedCost + num(r.issuedCost),
-        excessShort: acc.excessShort + num(r.excessShort),
-        reqJobTotal: acc.reqJobTotal + num(r.reqJobTotal)
+        issuedQty: acc.issuedQty + num(r.issuedQty)
       }),
-      { requiredQty: 0, issuedQty: 0, issuedQtyStock: 0, issuedCost: 0, excessShort: 0, reqJobTotal: 0 }
+      { requiredQty: 0, issuedQty: 0 }
     );
   }
 
-  function renderJobwiseDetailRow(r) {
+  /** Weighted Var % = (sum Issued − sum Required) / sum Required × 100 */
+  function weightedJobwiseVarPct(rows) {
+    const totals = sumJobwiseRows(rows);
+    if (!totals.requiredQty) return null;
+    return ((totals.issuedQty - totals.requiredQty) / totals.requiredQty) * 100;
+  }
+
+  function renderJobwiseDetailRow(r, indentDepth) {
+    const depth = indentDepth || 0;
+    const indentClass = depth > 0 ? ` jobwise-detail depth-${depth}` : '';
     return `
-      <tr>
-        <td></td>
-        <td>${escapeHtml(normalizeDateString(r.issueDate))}</td>
+      <tr class="jobwise-detail-row${indentClass}" data-depth="${depth}">
+        <td class="jobwise-date-cell">${escapeHtml(normalizeDateString(r.issueDate))}</td>
         <td>${escapeHtml(r.itemName)}</td>
         <td>${escapeHtml(r.itemGroup)}</td>
         <td>${escapeHtml(r.jobNum)}</td>
@@ -2077,43 +2026,41 @@
         <td>${escapeHtml(r.clientName)}</td>
         <td class="numeric">${fmtDec(r.requiredQty)}</td>
         <td class="numeric">${fmtDec(r.issuedQty)}</td>
-        <td>${escapeHtml(r.unit)}</td>
-        <td class="numeric">${fmtDec(r.excessShort)}</td>
         <td class="numeric">${fmtDec(r.varPct, 1)}</td>
-        <td class="numeric">${r.reqGsm == null || r.reqGsm === '' ? '' : fmtDec(r.reqGsm, 0)}</td>
-        <td class="numeric">${r.issuedGsm == null || r.issuedGsm === '' ? '' : fmtDec(r.issuedGsm, 0)}</td>
-        <td class="numeric">${fmtDec(r.reqJobTotal)}</td>
-        <td>${escapeHtml(r.specMatch)}</td>
-        <td class="numeric">${fmtDec(r.issuedQtyStock)}</td>
-        <td>${escapeHtml(r.stockUnit)}</td>
-        <td class="numeric">${fmtDec(r.issuedCost, 2)}</td>
-        <td>${escapeHtml(r.reqSource)}</td>
-        <td class="numeric">${fmtDec(r.unplannedIssue, 0)}</td>
       </tr>
     `;
   }
 
-  function renderJobwiseGroupHeader(path, label, rows, depth) {
+  function renderJobwiseGroupHeader(path, label, rows, depth, mode) {
     const expanded = expandedJobwiseGroups.has(path);
     const totals = sumJobwiseRows(rows);
+    const wVar = weightedJobwiseVarPct(rows);
+    const varText = wVar == null ? '—' : fmtDec(wVar, 1);
+    const pad = depth > 0 ? ` style="padding-left:${12 + depth * 18}px"` : '';
+    // Place group label in the natural first column for the mode; span identity cols.
+    let labelCell;
+    if (mode === 'date' || (mode === 'date-job' && depth === 0)) {
+      labelCell = `
+        <td class="jobwise-group-label" colspan="6"${pad}>
+          <button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}" aria-expanded="${expanded}">${expanded ? '−' : '+'}</button>
+          <span class="jobwise-group-title">${escapeHtml(label)}</span>
+          <span class="jobwise-group-count">${rows.length} row${rows.length === 1 ? '' : 's'}</span>
+        </td>`;
+    } else {
+      // job group: leave Date empty-ish, put label starting at JobNum area via colspan from col 1
+      labelCell = `
+        <td class="jobwise-group-label" colspan="6"${pad}>
+          <button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}" aria-expanded="${expanded}">${expanded ? '−' : '+'}</button>
+          <span class="jobwise-group-title">${escapeHtml(label)}</span>
+          <span class="jobwise-group-count">${rows.length} row${rows.length === 1 ? '' : 's'}</span>
+        </td>`;
+    }
     return `
       <tr class="group-row jobwise-group-row" data-depth="${depth}">
-        <td><button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}">${expanded ? '−' : '+'}</button></td>
-        <td colspan="6" class="jobwise-group-label">${escapeHtml(label)} <span class="jobwise-group-count">(${rows.length})</span></td>
+        ${labelCell}
         <td class="numeric">${fmtDec(totals.requiredQty)}</td>
         <td class="numeric">${fmtDec(totals.issuedQty)}</td>
-        <td></td>
-        <td class="numeric">${fmtDec(totals.excessShort)}</td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="numeric">${fmtDec(totals.reqJobTotal)}</td>
-        <td></td>
-        <td class="numeric">${fmtDec(totals.issuedQtyStock)}</td>
-        <td></td>
-        <td class="numeric">${fmtDec(totals.issuedCost, 2)}</td>
-        <td></td>
-        <td></td>
+        <td class="numeric jobwise-var">${varText}</td>
       </tr>
     `;
   }
@@ -2176,33 +2123,33 @@
     const mode = jobwiseGroupMode;
 
     if (mode === 'all') {
-      html = rows.map((r) => renderJobwiseDetailRow(r)).join('');
+      html = rows.map((r) => renderJobwiseDetailRow(r, 0)).join('');
     } else if (mode === 'date') {
       groupJobwiseByDate(rows).forEach((g) => {
         const path = `date||${g.key}`;
-        html += renderJobwiseGroupHeader(path, g.label, g.items, 0);
+        html += renderJobwiseGroupHeader(path, g.label, g.items, 0, 'date');
         if (expandedJobwiseGroups.has(path)) {
-          html += g.items.map((r) => renderJobwiseDetailRow(r)).join('');
+          html += g.items.map((r) => renderJobwiseDetailRow(r, 1)).join('');
         }
       });
     } else if (mode === 'job') {
       groupJobwiseByJob(rows).forEach((g) => {
         const path = `job||${g.key}`;
-        html += renderJobwiseGroupHeader(path, g.label, g.items, 0);
+        html += renderJobwiseGroupHeader(path, g.label, g.items, 0, 'job');
         if (expandedJobwiseGroups.has(path)) {
-          html += g.items.map((r) => renderJobwiseDetailRow(r)).join('');
+          html += g.items.map((r) => renderJobwiseDetailRow(r, 1)).join('');
         }
       });
     } else if (mode === 'date-job') {
       groupJobwiseByDate(rows).forEach((dateGroup) => {
         const datePath = `date||${dateGroup.key}`;
-        html += renderJobwiseGroupHeader(datePath, dateGroup.label, dateGroup.items, 0);
+        html += renderJobwiseGroupHeader(datePath, dateGroup.label, dateGroup.items, 0, 'date-job');
         if (expandedJobwiseGroups.has(datePath)) {
           groupJobwiseByJob(dateGroup.items).forEach((jobGroup) => {
             const jobPath = `${datePath}||job||${jobGroup.key}`;
-            html += renderJobwiseGroupHeader(jobPath, jobGroup.label, jobGroup.items, 1);
+            html += renderJobwiseGroupHeader(jobPath, jobGroup.label, jobGroup.items, 1, 'date-job');
             if (expandedJobwiseGroups.has(jobPath)) {
-              html += jobGroup.items.map((r) => renderJobwiseDetailRow(r)).join('');
+              html += jobGroup.items.map((r) => renderJobwiseDetailRow(r, 2)).join('');
             }
           });
         }

@@ -629,23 +629,66 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 
 .jobwise-table {
-  min-width: max-content;
+  width: 100%;
+  min-width: 960px;
 }
 
 .jobwise-table .sticky-filter {
   top: 28px;
 }
 
-.jobwise-group-label {
+.jobwise-table td.jobwise-group-label {
   text-align: left;
   white-space: nowrap;
+  vertical-align: middle;
+}
+
+.jobwise-group-label .toggle-btn-jobwise {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border-radius: 6px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.jobwise-group-title {
+  font-weight: 600;
+  margin-right: 8px;
 }
 
 .jobwise-group-count {
   color: var(--muted);
   font-weight: 500;
+  font-size: 12px;
+}
+
+.data-table tr.jobwise-group-row td {
+  background: rgba(51, 65, 85, 0.72);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .data-table tr.jobwise-group-row[data-depth="1"] td {
-  background: rgba(30, 41, 59, 0.55);
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.data-table tr.jobwise-detail-row[data-depth="1"] td.jobwise-date-cell,
+.data-table tr.jobwise-detail-row[data-depth="2"] td.jobwise-date-cell {
+  padding-left: 30px;
+}
+
+.data-table tr.jobwise-detail-row[data-depth="2"] td.jobwise-date-cell {
+  padding-left: 48px;
+}
+
+.data-table tr.jobwise-detail-row td {
+  font-weight: 400;
+  background: var(--panel);
 }
