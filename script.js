@@ -2014,17 +2014,16 @@
   }
 
   /**
-   * Highlight by |Var %|:
+   * Highlight by Var % (positive only):
    * 5–10 → yellow, 10–20 → orange, >20 → red
    */
   function jobwiseVarHighlightClass(varPct) {
     if (varPct == null || varPct === '') return '';
-    const abs = Math.abs(num(varPct));
-    if (!Number.isFinite(abs)) return '';
-    if (abs > 20) return 'jw-var-red';
-    if (abs >= 10) return 'jw-var-orange';
-    if (abs >= 5) return 'jw-var-yellow';
-    return '';
+    const v = num(varPct);
+    if (!Number.isFinite(v) || v < 5) return '';
+    if (v > 20) return 'jw-var-red';
+    if (v >= 10) return 'jw-var-orange';
+    return 'jw-var-yellow';
   }
 
   function renderJobwiseDetailRow(r, indentDepth) {
