@@ -692,3 +692,53 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   font-weight: 400;
   background: var(--panel);
 }
+
+/* Var % highlight (|Var%|): 5–10 yellow, 10–20 orange, >20 red */
+.data-table tr.jw-var-yellow td {
+  background: #fde68a !important;
+  color: #78350f !important;
+  border-bottom-color: #f59e0b;
+}
+
+.data-table tr.jw-var-yellow .jobwise-group-count {
+  color: #92400e;
+}
+
+.data-table tr.jw-var-yellow .toggle-btn-jobwise {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #78350f;
+}
+
+.data-table tr.jw-var-orange td {
+  background: #fdba74 !important;
+  color: #7c2d12 !important;
+  border-bottom-color: #ea580c;
+}
+
+.data-table tr.jw-var-orange .jobwise-group-count {
+  color: #9a3412;
+}
+
+.data-table tr.jw-var-orange .toggle-btn-jobwise {
+  background: #ffedd5;
+  border-color: #ea580c;
+  color: #7c2d12;
+}
+
+.data-table tr.jw-var-red td {
+  background: #f87171 !important;
+  color: #450a0a !important;
+  border-bottom-color: #dc2626;
+  font-weight: 600;
+}
+
+.data-table tr.jw-var-red .jobwise-group-count {
+  color: #7f1d1d;
+}
+
+.data-table tr.jw-var-red .toggle-btn-jobwise {
+  background: #fecaca;
+  border-color: #dc2626;
+  color: #450a0a;
+}

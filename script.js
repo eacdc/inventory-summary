@@ -2013,11 +2013,27 @@
     return ((totals.issuedQty - totals.requiredQty) / totals.requiredQty) * 100;
   }
 
+  /**
+   * Highlight by |Var %|:
+   * 5–10 → yellow, 10–20 → orange, >20 → red
+   */
+  function jobwiseVarHighlightClass(varPct) {
+    if (varPct == null || varPct === '') return '';
+    const abs = Math.abs(num(varPct));
+    if (!Number.isFinite(abs)) return '';
+    if (abs > 20) return 'jw-var-red';
+    if (abs >= 10) return 'jw-var-orange';
+    if (abs >= 5) return 'jw-var-yellow';
+    return '';
+  }
+
   function renderJobwiseDetailRow(r, indentDepth) {
     const depth = indentDepth || 0;
     const indentClass = depth > 0 ? ` jobwise-detail depth-${depth}` : '';
+    const hl = jobwiseVarHighlightClass(r.varPct);
+    const hlClass = hl ? ` ${hl}` : '';
     return `
-      <tr class="jobwise-detail-row${indentClass}" data-depth="${depth}">
+      <tr class="jobwise-detail-row${indentClass}${hlClass}" data-depth="${depth}">
         <td class="jobwise-date-cell">${escapeHtml(normalizeDateString(r.issueDate))}</td>
         <td>${escapeHtml(r.itemName)}</td>
         <td>${escapeHtml(r.itemGroup)}</td>
@@ -2036,27 +2052,17 @@
     const totals = sumJobwiseRows(rows);
     const wVar = weightedJobwiseVarPct(rows);
     const varText = wVar == null ? '—' : fmtDec(wVar, 1);
+    const hl = jobwiseVarHighlightClass(wVar);
+    const hlClass = hl ? ` ${hl}` : '';
     const pad = depth > 0 ? ` style="padding-left:${12 + depth * 18}px"` : '';
-    // Place group label in the natural first column for the mode; span identity cols.
-    let labelCell;
-    if (mode === 'date' || (mode === 'date-job' && depth === 0)) {
-      labelCell = `
+    const labelCell = `
         <td class="jobwise-group-label" colspan="6"${pad}>
           <button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}" aria-expanded="${expanded}">${expanded ? '−' : '+'}</button>
           <span class="jobwise-group-title">${escapeHtml(label)}</span>
           <span class="jobwise-group-count">${rows.length} row${rows.length === 1 ? '' : 's'}</span>
         </td>`;
-    } else {
-      // job group: leave Date empty-ish, put label starting at JobNum area via colspan from col 1
-      labelCell = `
-        <td class="jobwise-group-label" colspan="6"${pad}>
-          <button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}" aria-expanded="${expanded}">${expanded ? '−' : '+'}</button>
-          <span class="jobwise-group-title">${escapeHtml(label)}</span>
-          <span class="jobwise-group-count">${rows.length} row${rows.length === 1 ? '' : 's'}</span>
-        </td>`;
-    }
     return `
-      <tr class="group-row jobwise-group-row" data-depth="${depth}">
+      <tr class="group-row jobwise-group-row${hlClass}" data-depth="${depth}">
         ${labelCell}
         <td class="numeric">${fmtDec(totals.requiredQty)}</td>
         <td class="numeric">${fmtDec(totals.issuedQty)}</td>
