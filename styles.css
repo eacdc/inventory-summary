@@ -599,3 +599,53 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 .data-table tr.categorywise-grand-total .categorywise-cell-val {
   color: #cbd5e1;
 }
+
+/* Jobwise Issued */
+.jobwise-group-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.jobwise-group-btn {
+  height: 32px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: #0b1220;
+  border-radius: 8px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.jobwise-group-btn:hover {
+  border-color: var(--muted);
+}
+
+.jobwise-group-btn.active {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: var(--accent);
+}
+
+.jobwise-table {
+  min-width: max-content;
+}
+
+.jobwise-table .sticky-filter {
+  top: 28px;
+}
+
+.jobwise-group-label {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.jobwise-group-count {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.data-table tr.jobwise-group-row[data-depth="1"] td {
+  background: rgba(30, 41, 59, 0.55);
+}

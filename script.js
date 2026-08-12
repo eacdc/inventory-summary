@@ -11,6 +11,7 @@
     tabAllSummary: document.getElementById('tab-all-summary'),
     tabStockBuffer: document.getElementById('tab-stock-buffer'),
     tabCategorywise: document.getElementById('tab-categorywise'),
+    tabJobwise: document.getElementById('tab-jobwise'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
     poPanel: document.getElementById('po-noclient-panel'),
@@ -20,6 +21,9 @@
     categorywiseCards: document.getElementById('categorywise-cards'),
     categorywiseHead: document.getElementById('categorywise-head'),
     categorywiseBody: document.getElementById('categorywise-body'),
+    jobwisePanel: document.getElementById('jobwise-panel'),
+    jobwiseBody: document.getElementById('jobwise-body'),
+    jobwiseGroupBar: document.querySelector('.jobwise-group-bar'),
     stockBufferDeckle: document.getElementById('stock-buffer-deckle'),
     stockBufferGsm: document.getElementById('stock-buffer-gsm'),
     stockBufferQuality: document.getElementById('stock-buffer-quality'),
@@ -62,6 +66,28 @@
       itemName: document.getElementById('filter-po-itemname'),
       itemCode: document.getElementById('filter-po-itemcode'),
       stockKg: document.getElementById('filter-po-stockkg')
+    },
+    filterJobwise: {
+      date: document.getElementById('filter-jw-date'),
+      item: document.getElementById('filter-jw-item'),
+      itemGroup: document.getElementById('filter-jw-itemgroup'),
+      jobNum: document.getElementById('filter-jw-jobnum'),
+      jobName: document.getElementById('filter-jw-jobname'),
+      client: document.getElementById('filter-jw-client'),
+      required: document.getElementById('filter-jw-required'),
+      issued: document.getElementById('filter-jw-issued'),
+      unit: document.getElementById('filter-jw-unit'),
+      excess: document.getElementById('filter-jw-excess'),
+      varPct: document.getElementById('filter-jw-varpct'),
+      reqGsm: document.getElementById('filter-jw-reqgsm'),
+      issuedGsm: document.getElementById('filter-jw-issuedgsm'),
+      reqJobTotal: document.getElementById('filter-jw-reqjobtotal'),
+      specMatch: document.getElementById('filter-jw-specmatch'),
+      issuedStock: document.getElementById('filter-jw-issuedstock'),
+      stockUnit: document.getElementById('filter-jw-stockunit'),
+      issuedCost: document.getElementById('filter-jw-issuedcost'),
+      reqSource: document.getElementById('filter-jw-reqsource'),
+      unplanned: document.getElementById('filter-jw-unplanned')
     }
   };
 
@@ -77,6 +103,9 @@
   let categorywiseTree = [];
   let categorywiseHeadMonthsKey = '';
   let categorywiseFilterState = { label: '', months: {}, totalKg: '' };
+  let currentJobwiseRows = [];
+  let jobwiseGroupMode = 'all';
+  const expandedJobwiseGroups = new Set();
   let stockBufferSearchInFlight = false;
   let allSummaryColumns = [];
   let allSummaryColumnWidths = {};
@@ -135,6 +164,7 @@
     const isAllSummary = which === 'all-summary';
     const isStockBuffer = which === 'stock-buffer';
     const isCategorywise = which === 'categorywise';
+    const isJobwise = which === 'jobwise';
 
     if (isItemwise) activeTab = 'itemwise';
     else if (isClientwise) activeTab = 'clientwise';
@@ -142,6 +172,7 @@
     else if (isAllSummary) activeTab = 'all-summary';
     else if (isStockBuffer) activeTab = 'stock-buffer';
     else if (isCategorywise) activeTab = 'categorywise';
+    else if (isJobwise) activeTab = 'jobwise';
     else activeTab = 'itemwise';
 
     if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
@@ -150,6 +181,7 @@
     if (els.tabAllSummary) els.tabAllSummary.classList.toggle('active', isAllSummary);
     if (els.tabStockBuffer) els.tabStockBuffer.classList.toggle('active', isStockBuffer);
     if (els.tabCategorywise) els.tabCategorywise.classList.toggle('active', isCategorywise);
+    if (els.tabJobwise) els.tabJobwise.classList.toggle('active', isJobwise);
 
     if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
     if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
@@ -157,10 +189,11 @@
     if (els.allSummaryPanel) els.allSummaryPanel.classList.toggle('hidden', !isAllSummary);
     if (els.stockBufferPanel) els.stockBufferPanel.classList.toggle('hidden', !isStockBuffer);
     if (els.categorywisePanel) els.categorywisePanel.classList.toggle('hidden', !isCategorywise);
+    if (els.jobwisePanel) els.jobwisePanel.classList.toggle('hidden', !isJobwise);
 
     if (els.btnLoad) els.btnLoad.classList.toggle('hidden', isStockBuffer);
 
-    toggleDateFilters(isItemwise || isClientwise || isPo || isCategorywise);
+    toggleDateFilters(isItemwise || isClientwise || isPo || isCategorywise || isJobwise);
     updateAllSummaryPresetToolbar();
   }
 
@@ -1203,6 +1236,68 @@
       });
       downloadCsvFile(`inventory-categorywise-issued-${db}-${dateStr}.csv`, lines.join('\r\n'));
       setStatus(`Exported ${rows.length} leaf row(s) (categorywise issued).`);
+      return;
+    }
+
+    if (activeTab === 'jobwise') {
+      const rows = getFilteredJobwiseRows();
+      if (!rows.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = [
+        'Date',
+        'Item',
+        'Item Group',
+        'JobNum',
+        'Job Name',
+        'Client',
+        'Required as per Job',
+        'Issued Qty (same unit)',
+        'Unit',
+        'Excess/(Short)',
+        'Var %',
+        'Req GSM',
+        'Issued GSM',
+        'Req Job Total',
+        'Spec Match',
+        'Issued Qty (Stock Unit)',
+        'Stock Unit',
+        'Issued Cost',
+        'Req Source',
+        'Unplanned Issue'
+      ];
+      const lines = [header.map(toCsvCell).join(',')];
+      rows.forEach((r) => {
+        lines.push(
+          [
+            normalizeDateString(r.issueDate),
+            r.itemName,
+            r.itemGroup,
+            r.jobNum,
+            r.jobName,
+            r.clientName,
+            r.requiredQty,
+            r.issuedQty,
+            r.unit,
+            r.excessShort,
+            r.varPct,
+            r.reqGsm,
+            r.issuedGsm,
+            r.reqJobTotal,
+            r.specMatch,
+            r.issuedQtyStock,
+            r.stockUnit,
+            r.issuedCost,
+            r.reqSource,
+            r.unplannedIssue
+          ]
+            .map(toCsvCell)
+            .join(',')
+        );
+      });
+      downloadCsvFile(`inventory-jobwise-issued-${db}-${dateStr}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${rows.length} row(s) (jobwise issued).`);
     }
   }
 
@@ -1883,6 +1978,292 @@
     }
   }
 
+  const JOBWISE_COLSPAN = 21;
+
+  function fmtDec(v, digits) {
+    const d = digits == null ? 3 : digits;
+    const n = num(v);
+    return new Intl.NumberFormat('en-IN', {
+      maximumFractionDigits: d,
+      minimumFractionDigits: 0
+    }).format(n);
+  }
+
+  function textIncludes(hay, needle) {
+    if (!needle) return true;
+    return String(hay == null ? '' : hay).toLowerCase().includes(needle);
+  }
+
+  function getJobwiseFilterState() {
+    const f = els.filterJobwise || {};
+    return {
+      date: String(f.date?.value || '').trim().toLowerCase(),
+      item: String(f.item?.value || '').trim().toLowerCase(),
+      itemGroup: String(f.itemGroup?.value || '').trim().toLowerCase(),
+      jobNum: String(f.jobNum?.value || '').trim().toLowerCase(),
+      jobName: String(f.jobName?.value || '').trim().toLowerCase(),
+      client: String(f.client?.value || '').trim().toLowerCase(),
+      required: f.required?.value ?? '',
+      issued: f.issued?.value ?? '',
+      unit: String(f.unit?.value || '').trim().toLowerCase(),
+      excess: f.excess?.value ?? '',
+      varPct: f.varPct?.value ?? '',
+      reqGsm: f.reqGsm?.value ?? '',
+      issuedGsm: f.issuedGsm?.value ?? '',
+      reqJobTotal: f.reqJobTotal?.value ?? '',
+      specMatch: String(f.specMatch?.value || '').trim().toLowerCase(),
+      issuedStock: f.issuedStock?.value ?? '',
+      stockUnit: String(f.stockUnit?.value || '').trim().toLowerCase(),
+      issuedCost: f.issuedCost?.value ?? '',
+      reqSource: String(f.reqSource?.value || '').trim().toLowerCase(),
+      unplanned: f.unplanned?.value ?? ''
+    };
+  }
+
+  function jobwiseRowMatches(r, f) {
+    const dateStr = normalizeDateString(r.issueDate);
+    return (
+      textIncludes(dateStr, f.date) &&
+      textIncludes(r.itemName, f.item) &&
+      textIncludes(r.itemGroup, f.itemGroup) &&
+      textIncludes(r.jobNum, f.jobNum) &&
+      textIncludes(r.jobName, f.jobName) &&
+      textIncludes(r.clientName, f.client) &&
+      numMinPass(r.requiredQty, f.required) &&
+      numMinPass(r.issuedQty, f.issued) &&
+      textIncludes(r.unit, f.unit) &&
+      numMinPass(r.excessShort, f.excess) &&
+      numMinPass(r.varPct, f.varPct) &&
+      numMinPass(r.reqGsm, f.reqGsm) &&
+      numMinPass(r.issuedGsm, f.issuedGsm) &&
+      numMinPass(r.reqJobTotal, f.reqJobTotal) &&
+      textIncludes(r.specMatch, f.specMatch) &&
+      numMinPass(r.issuedQtyStock, f.issuedStock) &&
+      textIncludes(r.stockUnit, f.stockUnit) &&
+      numMinPass(r.issuedCost, f.issuedCost) &&
+      textIncludes(r.reqSource, f.reqSource) &&
+      numMinPass(r.unplannedIssue, f.unplanned)
+    );
+  }
+
+  function getFilteredJobwiseRows() {
+    const f = getJobwiseFilterState();
+    return (currentJobwiseRows || []).filter((r) => jobwiseRowMatches(r, f));
+  }
+
+  function sumJobwiseRows(rows) {
+    return (rows || []).reduce(
+      (acc, r) => ({
+        requiredQty: acc.requiredQty + num(r.requiredQty),
+        issuedQty: acc.issuedQty + num(r.issuedQty),
+        issuedQtyStock: acc.issuedQtyStock + num(r.issuedQtyStock),
+        issuedCost: acc.issuedCost + num(r.issuedCost),
+        excessShort: acc.excessShort + num(r.excessShort),
+        reqJobTotal: acc.reqJobTotal + num(r.reqJobTotal)
+      }),
+      { requiredQty: 0, issuedQty: 0, issuedQtyStock: 0, issuedCost: 0, excessShort: 0, reqJobTotal: 0 }
+    );
+  }
+
+  function renderJobwiseDetailRow(r) {
+    return `
+      <tr>
+        <td></td>
+        <td>${escapeHtml(normalizeDateString(r.issueDate))}</td>
+        <td>${escapeHtml(r.itemName)}</td>
+        <td>${escapeHtml(r.itemGroup)}</td>
+        <td>${escapeHtml(r.jobNum)}</td>
+        <td>${escapeHtml(r.jobName)}</td>
+        <td>${escapeHtml(r.clientName)}</td>
+        <td class="numeric">${fmtDec(r.requiredQty)}</td>
+        <td class="numeric">${fmtDec(r.issuedQty)}</td>
+        <td>${escapeHtml(r.unit)}</td>
+        <td class="numeric">${fmtDec(r.excessShort)}</td>
+        <td class="numeric">${fmtDec(r.varPct, 1)}</td>
+        <td class="numeric">${r.reqGsm == null || r.reqGsm === '' ? '' : fmtDec(r.reqGsm, 0)}</td>
+        <td class="numeric">${r.issuedGsm == null || r.issuedGsm === '' ? '' : fmtDec(r.issuedGsm, 0)}</td>
+        <td class="numeric">${fmtDec(r.reqJobTotal)}</td>
+        <td>${escapeHtml(r.specMatch)}</td>
+        <td class="numeric">${fmtDec(r.issuedQtyStock)}</td>
+        <td>${escapeHtml(r.stockUnit)}</td>
+        <td class="numeric">${fmtDec(r.issuedCost, 2)}</td>
+        <td>${escapeHtml(r.reqSource)}</td>
+        <td class="numeric">${fmtDec(r.unplannedIssue, 0)}</td>
+      </tr>
+    `;
+  }
+
+  function renderJobwiseGroupHeader(path, label, rows, depth) {
+    const expanded = expandedJobwiseGroups.has(path);
+    const totals = sumJobwiseRows(rows);
+    return `
+      <tr class="group-row jobwise-group-row" data-depth="${depth}">
+        <td><button type="button" class="toggle-btn toggle-btn-jobwise" data-path="${escapeHtml(path)}">${expanded ? '−' : '+'}</button></td>
+        <td colspan="6" class="jobwise-group-label">${escapeHtml(label)} <span class="jobwise-group-count">(${rows.length})</span></td>
+        <td class="numeric">${fmtDec(totals.requiredQty)}</td>
+        <td class="numeric">${fmtDec(totals.issuedQty)}</td>
+        <td></td>
+        <td class="numeric">${fmtDec(totals.excessShort)}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="numeric">${fmtDec(totals.reqJobTotal)}</td>
+        <td></td>
+        <td class="numeric">${fmtDec(totals.issuedQtyStock)}</td>
+        <td></td>
+        <td class="numeric">${fmtDec(totals.issuedCost, 2)}</td>
+        <td></td>
+        <td></td>
+      </tr>
+    `;
+  }
+
+  function groupJobwiseByDate(rows) {
+    const map = new Map();
+    rows.forEach((r) => {
+      const key = normalizeDateString(r.issueDate) || 'Unknown';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, items]) => ({ key, label: key, items }));
+  }
+
+  function groupJobwiseByJob(rows) {
+    const map = new Map();
+    rows.forEach((r) => {
+      const jobNum = String(r.jobNum || '').trim() || 'Untagged';
+      if (!map.has(jobNum)) map.set(jobNum, { jobNum, jobName: r.jobName || '', items: [] });
+      const g = map.get(jobNum);
+      if (!g.jobName && r.jobName) g.jobName = r.jobName;
+      g.items.push(r);
+    });
+    return Array.from(map.values())
+      .sort((a, b) => a.jobNum.localeCompare(b.jobNum))
+      .map((g) => ({
+        key: g.jobNum,
+        label: g.jobName ? `${g.jobNum} — ${g.jobName}` : g.jobNum,
+        items: g.items
+      }));
+  }
+
+  function setJobwiseGroupMode(mode) {
+    const allowed = { all: 1, date: 1, job: 1, 'date-job': 1 };
+    jobwiseGroupMode = allowed[mode] ? mode : 'all';
+    if (els.jobwiseGroupBar) {
+      els.jobwiseGroupBar.querySelectorAll('.jobwise-group-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-jobwise-group') === jobwiseGroupMode);
+      });
+    }
+    expandedJobwiseGroups.clear();
+    renderJobwiseTable();
+  }
+
+  function renderJobwiseTable() {
+    if (!els.jobwiseBody) return;
+    const rows = getFilteredJobwiseRows();
+    if (!currentJobwiseRows.length) {
+      els.jobwiseBody.innerHTML = `<tr><td colspan="${JOBWISE_COLSPAN}" class="empty">Load to view jobwise issued (job issue register).</td></tr>`;
+      return;
+    }
+    if (!rows.length) {
+      els.jobwiseBody.innerHTML = `<tr><td colspan="${JOBWISE_COLSPAN}" class="empty">No rows match filters.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    const mode = jobwiseGroupMode;
+
+    if (mode === 'all') {
+      html = rows.map((r) => renderJobwiseDetailRow(r)).join('');
+    } else if (mode === 'date') {
+      groupJobwiseByDate(rows).forEach((g) => {
+        const path = `date||${g.key}`;
+        html += renderJobwiseGroupHeader(path, g.label, g.items, 0);
+        if (expandedJobwiseGroups.has(path)) {
+          html += g.items.map((r) => renderJobwiseDetailRow(r)).join('');
+        }
+      });
+    } else if (mode === 'job') {
+      groupJobwiseByJob(rows).forEach((g) => {
+        const path = `job||${g.key}`;
+        html += renderJobwiseGroupHeader(path, g.label, g.items, 0);
+        if (expandedJobwiseGroups.has(path)) {
+          html += g.items.map((r) => renderJobwiseDetailRow(r)).join('');
+        }
+      });
+    } else if (mode === 'date-job') {
+      groupJobwiseByDate(rows).forEach((dateGroup) => {
+        const datePath = `date||${dateGroup.key}`;
+        html += renderJobwiseGroupHeader(datePath, dateGroup.label, dateGroup.items, 0);
+        if (expandedJobwiseGroups.has(datePath)) {
+          groupJobwiseByJob(dateGroup.items).forEach((jobGroup) => {
+            const jobPath = `${datePath}||job||${jobGroup.key}`;
+            html += renderJobwiseGroupHeader(jobPath, jobGroup.label, jobGroup.items, 1);
+            if (expandedJobwiseGroups.has(jobPath)) {
+              html += jobGroup.items.map((r) => renderJobwiseDetailRow(r)).join('');
+            }
+          });
+        }
+      });
+    }
+
+    els.jobwiseBody.innerHTML = html;
+    els.jobwiseBody.querySelectorAll('.toggle-btn-jobwise').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const path = String(btn.dataset.path || '');
+        if (!path) return;
+        if (expandedJobwiseGroups.has(path)) expandedJobwiseGroups.delete(path);
+        else expandedJobwiseGroups.add(path);
+        renderJobwiseTable();
+      });
+    });
+  }
+
+  async function loadJobwiseIssued() {
+    const fromDate = String(els.fromDate.value || '').trim();
+    const toDate = String(els.toDate.value || '').trim();
+    if (!fromDate || !toDate) {
+      setStatus('Please select both from and to date.', true);
+      return;
+    }
+    if (fromDate > toDate) {
+      setStatus('From date cannot be after to date.', true);
+      return;
+    }
+
+    setStatus('Loading...');
+    els.btnLoad.disabled = true;
+    try {
+      const url = new URL(`${API_BASE}/inventory-summary/jobwise-issued`);
+      url.searchParams.set('database', els.database.value || 'KOL');
+      url.searchParams.set('fromDate', fromDate);
+      url.searchParams.set('toDate', toDate);
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+
+      currentJobwiseRows = Array.isArray(data.records) ? data.records : [];
+      expandedJobwiseGroups.clear();
+      renderJobwiseTable();
+      setStatus(`Loaded ${currentJobwiseRows.length} job issue row(s).`);
+    } catch (e) {
+      currentJobwiseRows = [];
+      expandedJobwiseGroups.clear();
+      renderJobwiseTable();
+      setStatus(e.message || 'Failed to load jobwise issued.', true);
+    } finally {
+      els.btnLoad.disabled = false;
+    }
+  }
+
   async function loadItemwise() {
     const fromDate = String(els.fromDate.value || '').trim();
     const toDate = String(els.toDate.value || '').trim();
@@ -2134,6 +2515,21 @@
       loadCategorywiseIssued();
     });
   }
+  if (els.tabJobwise) {
+    els.tabJobwise.addEventListener('click', () => {
+      setTab('jobwise');
+      loadJobwiseIssued();
+    });
+  }
+  if (els.jobwiseGroupBar) {
+    els.jobwiseGroupBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.jobwise-group-btn');
+      if (!btn) return;
+      const mode = btn.getAttribute('data-jobwise-group');
+      if (!mode) return;
+      setJobwiseGroupMode(mode);
+    });
+  }
   if (els.stockBufferSearchForm) {
     els.stockBufferSearchForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -2151,6 +2547,7 @@
     if (activeTab === 'po-noclient') return loadPoNoClientTop200();
     if (activeTab === 'all-summary') return loadAllTabSummary();
     if (activeTab === 'categorywise') return loadCategorywiseIssued();
+    if (activeTab === 'jobwise') return loadJobwiseIssued();
     if (activeTab === 'stock-buffer') return;
     return loadItemwise();
   });
@@ -2176,6 +2573,7 @@
     const itemwiseInputs = Object.values(els.filterItemwise).filter(Boolean);
     const clientInputs = Object.values(els.filterClient).filter(Boolean);
     const poInputs = Object.values(els.filterPo).filter(Boolean);
+    const jobwiseInputs = Object.values(els.filterJobwise || {}).filter(Boolean);
     itemwiseInputs.forEach((el) => {
       el.addEventListener('input', () => {
         if (activeTab === 'itemwise') renderTable(currentRows);
@@ -2189,6 +2587,11 @@
     poInputs.forEach((el) => {
       el.addEventListener('input', () => {
         if (activeTab === 'po-noclient') renderPoTable(currentPoRows);
+      });
+    });
+    jobwiseInputs.forEach((el) => {
+      el.addEventListener('input', () => {
+        if (activeTab === 'jobwise') renderJobwiseTable();
       });
     });
     if (els.categorywiseHead) {

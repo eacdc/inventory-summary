@@ -22,6 +22,7 @@
           <button type="button" id="tab-all-summary" class="tab">All Tab Summary</button>
           <button type="button" id="tab-stock-buffer" class="tab">Stock search (buffer)</button>
           <button type="button" id="tab-categorywise" class="tab">Categorywise Issued</button>
+          <button type="button" id="tab-jobwise" class="tab">Jobwise Issued</button>
           <a
             class="tab tab-external"
             href="https://client-wise-paper-consumption.onrender.com"
@@ -230,6 +231,72 @@
               <tbody id="categorywise-body">
                 <tr>
                   <td class="empty">Load to view categorywise issued (stock out by business category).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="jobwise-panel" class="hidden">
+          <div class="jobwise-group-bar" role="group" aria-label="Jobwise grouping">
+            <button type="button" class="jobwise-group-btn active" data-jobwise-group="all">All Rows</button>
+            <button type="button" class="jobwise-group-btn" data-jobwise-group="date">Group By Date</button>
+            <button type="button" class="jobwise-group-btn" data-jobwise-group="job">Group By Job</button>
+            <button type="button" class="jobwise-group-btn" data-jobwise-group="date-job">Group By Date &amp; Job</button>
+          </div>
+          <div class="table-wrap table-scroll table-scroll-all">
+            <table class="data-table jobwise-table">
+              <thead>
+                <tr>
+                  <th class="sticky-header" style="width: 44px;">View</th>
+                  <th class="sticky-header">Date</th>
+                  <th class="sticky-header">Item</th>
+                  <th class="sticky-header">Item Group</th>
+                  <th class="sticky-header">JobNum</th>
+                  <th class="sticky-header">Job Name</th>
+                  <th class="sticky-header">Client</th>
+                  <th class="sticky-header">Required as per Job</th>
+                  <th class="sticky-header">Issued Qty (same unit)</th>
+                  <th class="sticky-header">Unit</th>
+                  <th class="sticky-header">Excess/(Short)</th>
+                  <th class="sticky-header">Var %</th>
+                  <th class="sticky-header">Req GSM</th>
+                  <th class="sticky-header">Issued GSM</th>
+                  <th class="sticky-header">Req Job Total</th>
+                  <th class="sticky-header">Spec Match</th>
+                  <th class="sticky-header">Issued Qty (Stock Unit)</th>
+                  <th class="sticky-header">Stock Unit</th>
+                  <th class="sticky-header">Issued Cost</th>
+                  <th class="sticky-header">Req Source</th>
+                  <th class="sticky-header">Unplanned Issue</th>
+                </tr>
+                <tr class="filter-row">
+                  <th class="sticky-filter"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-date" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-item" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-itemgroup" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-jobnum" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-jobname" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-client" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-required" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-issued" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-unit" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-excess" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-varpct" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-reqgsm" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-issuedgsm" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-reqjobtotal" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-specmatch" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-issuedstock" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-stockunit" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-issuedcost" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="search" id="filter-jw-reqsource" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-jw-unplanned" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                </tr>
+              </thead>
+              <tbody id="jobwise-body">
+                <tr>
+                  <td colspan="21" class="empty">Load to view jobwise issued (job issue register).</td>
                 </tr>
               </tbody>
             </table>
