@@ -2017,19 +2017,35 @@
   }
 
   function sumJobwiseRows(rows) {
-    return (rows || []).reduce(
-      (acc, r) => ({
-        requiredQty: acc.requiredQty + num(r.requiredQty),
-        issuedQty: acc.issuedQty + num(r.issuedQty),
-        cumulativeIssued: acc.cumulativeIssued + num(r.cumulativeIssued),
-        excessShort: acc.excessShort + num(r.excessShort),
-        issuedCost: acc.issuedCost + num(r.issuedCost)
-      }),
-      { requiredQty: 0, issuedQty: 0, cumulativeIssued: 0, excessShort: 0, issuedCost: 0 }
-    );
+    const list = rows || [];
+    let requiredQty = 0;
+    let issuedQty = 0;
+    let cumulativeIssued = 0;
+    let excessShort = 0;
+    let issuedCost = 0;
+    let hasRequired = false;
+    let hasCumulative = false;
+
+    list.forEach((r) => {
+      const req = num(r.requiredQty);
+      const cum = num(r.cumulativeIssued);
+      if (!hasRequired || req > requiredQty) {
+        requiredQty = req;
+        hasRequired = true;
+      }
+      if (!hasCumulative || cum > cumulativeIssued) {
+        cumulativeIssued = cum;
+        hasCumulative = true;
+      }
+      issuedQty += num(r.issuedQty);
+      excessShort += num(r.excessShort);
+      issuedCost += num(r.issuedCost);
+    });
+
+    return { requiredQty, issuedQty, cumulativeIssued, excessShort, issuedCost };
   }
 
-  /** Weighted Var % = (sum Issued − sum Required) / sum Required × 100 */
+  /** Weighted Var % using MAX Required in the group: (Σ Issued − MAX Required) / MAX Required × 100 */
   function weightedJobwiseVarPct(rows) {
     const totals = sumJobwiseRows(rows);
     if (!totals.requiredQty) return null;
