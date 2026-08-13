@@ -76,7 +76,11 @@
       client: document.getElementById('filter-jw-client'),
       required: document.getElementById('filter-jw-required'),
       issued: document.getElementById('filter-jw-issued'),
-      varPct: document.getElementById('filter-jw-varpct')
+      cumulative: document.getElementById('filter-jw-cumulative'),
+      unit: document.getElementById('filter-jw-unit'),
+      excess: document.getElementById('filter-jw-excess'),
+      varPct: document.getElementById('filter-jw-varpct'),
+      issuedCost: document.getElementById('filter-jw-issuedcost')
     }
   };
 
@@ -1236,28 +1240,36 @@
       }
       const header = [
         'Date',
-        'Item',
+        'Issued Items',
         'Item Group',
         'JobNum',
         'Job Name',
         'Client',
         'Required as per Job',
         'Issued Qty (In same unit as required)',
-        'Var %'
+        'Cumulative Issued',
+        'Unit',
+        'Excess/(Short)',
+        'Var %',
+        'Issued Cost'
       ];
       const lines = [header.map(toCsvCell).join(',')];
       rows.forEach((r) => {
         lines.push(
           [
             normalizeDateString(r.issueDate),
-            r.itemName,
+            r.issuedItems,
             r.itemGroup,
             r.jobNum,
             r.jobName,
             r.clientName,
             r.requiredQty,
             r.issuedQty,
-            r.varPct
+            r.cumulativeIssued,
+            r.unit,
+            r.excessShort,
+            r.varPct,
+            r.issuedCost
           ]
             .map(toCsvCell)
             .join(',')
@@ -1945,7 +1957,7 @@
     }
   }
 
-  const JOBWISE_COLSPAN = 9;
+  const JOBWISE_COLSPAN = 13;
 
   function fmtDec(v, digits) {
     const d = digits == null ? 3 : digits;
@@ -1972,7 +1984,11 @@
       client: String(f.client?.value || '').trim().toLowerCase(),
       required: f.required?.value ?? '',
       issued: f.issued?.value ?? '',
-      varPct: f.varPct?.value ?? ''
+      cumulative: f.cumulative?.value ?? '',
+      unit: String(f.unit?.value || '').trim().toLowerCase(),
+      excess: f.excess?.value ?? '',
+      varPct: f.varPct?.value ?? '',
+      issuedCost: f.issuedCost?.value ?? ''
     };
   }
 
@@ -1980,14 +1996,18 @@
     const dateStr = normalizeDateString(r.issueDate);
     return (
       textIncludes(dateStr, f.date) &&
-      textIncludes(r.itemName, f.item) &&
+      textIncludes(r.issuedItems, f.item) &&
       textIncludes(r.itemGroup, f.itemGroup) &&
       textIncludes(r.jobNum, f.jobNum) &&
       textIncludes(r.jobName, f.jobName) &&
       textIncludes(r.clientName, f.client) &&
       numMinPass(r.requiredQty, f.required) &&
       numMinPass(r.issuedQty, f.issued) &&
-      numMinPass(r.varPct, f.varPct)
+      numMinPass(r.cumulativeIssued, f.cumulative) &&
+      textIncludes(r.unit, f.unit) &&
+      numMinPass(r.excessShort, f.excess) &&
+      numMinPass(r.varPct, f.varPct) &&
+      numMinPass(r.issuedCost, f.issuedCost)
     );
   }
 
@@ -2000,9 +2020,12 @@
     return (rows || []).reduce(
       (acc, r) => ({
         requiredQty: acc.requiredQty + num(r.requiredQty),
-        issuedQty: acc.issuedQty + num(r.issuedQty)
+        issuedQty: acc.issuedQty + num(r.issuedQty),
+        cumulativeIssued: acc.cumulativeIssued + num(r.cumulativeIssued),
+        excessShort: acc.excessShort + num(r.excessShort),
+        issuedCost: acc.issuedCost + num(r.issuedCost)
       }),
-      { requiredQty: 0, issuedQty: 0 }
+      { requiredQty: 0, issuedQty: 0, cumulativeIssued: 0, excessShort: 0, issuedCost: 0 }
     );
   }
 
@@ -2034,14 +2057,18 @@
     return `
       <tr class="jobwise-detail-row${indentClass}${hlClass}" data-depth="${depth}">
         <td class="jobwise-date-cell">${escapeHtml(normalizeDateString(r.issueDate))}</td>
-        <td>${escapeHtml(r.itemName)}</td>
+        <td>${escapeHtml(r.issuedItems)}</td>
         <td>${escapeHtml(r.itemGroup)}</td>
         <td>${escapeHtml(r.jobNum)}</td>
         <td>${escapeHtml(r.jobName)}</td>
         <td>${escapeHtml(r.clientName)}</td>
         <td class="numeric">${fmtDec(r.requiredQty)}</td>
         <td class="numeric">${fmtDec(r.issuedQty)}</td>
+        <td class="numeric">${fmtDec(r.cumulativeIssued)}</td>
+        <td>${escapeHtml(r.unit)}</td>
+        <td class="numeric">${fmtDec(r.excessShort)}</td>
         <td class="numeric">${fmtDec(r.varPct, 1)}</td>
+        <td class="numeric">${fmtDec(r.issuedCost, 2)}</td>
       </tr>
     `;
   }
@@ -2065,7 +2092,11 @@
         ${labelCell}
         <td class="numeric">${fmtDec(totals.requiredQty)}</td>
         <td class="numeric">${fmtDec(totals.issuedQty)}</td>
+        <td class="numeric">${fmtDec(totals.cumulativeIssued)}</td>
+        <td></td>
+        <td class="numeric">${fmtDec(totals.excessShort)}</td>
         <td class="numeric jobwise-var">${varText}</td>
+        <td class="numeric">${fmtDec(totals.issuedCost, 2)}</td>
       </tr>
     `;
   }
