@@ -256,6 +256,7 @@
                   <th class="sticky-header">Client</th>
                   <th class="sticky-header">Required as per Job</th>
                   <th class="sticky-header">Issued Qty (In same unit as required)</th>
+                  <th class="sticky-header">Opening Issued</th>
                   <th class="sticky-header">Cumulative Issued</th>
                   <th class="sticky-header">Unit</th>
                   <th class="sticky-header">Excess/(Short)</th>
@@ -271,6 +272,7 @@
                   <th class="sticky-filter"><input type="search" id="filter-jw-client" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
                   <th class="sticky-filter"><input type="number" step="any" id="filter-jw-required" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
                   <th class="sticky-filter"><input type="number" step="any" id="filter-jw-issued" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
+                  <th class="sticky-filter"><input type="number" step="any" id="filter-jw-opening" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
                   <th class="sticky-filter"><input type="number" step="any" id="filter-jw-cumulative" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
                   <th class="sticky-filter"><input type="search" id="filter-jw-unit" class="filter-input filter-text" placeholder="Filter…" autocomplete="off"></th>
                   <th class="sticky-filter"><input type="number" step="any" id="filter-jw-excess" class="filter-input filter-num" placeholder="Min" inputmode="decimal"></th>
@@ -280,7 +282,7 @@
               </thead>
               <tbody id="jobwise-body">
                 <tr>
-                  <td colspan="13" class="empty">Load to view jobwise issued (job issue register).</td>
+                  <td colspan="14" class="empty">Load to view jobwise issued (job issue register).</td>
                 </tr>
               </tbody>
             </table>

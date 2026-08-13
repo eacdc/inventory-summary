@@ -76,6 +76,7 @@
       client: document.getElementById('filter-jw-client'),
       required: document.getElementById('filter-jw-required'),
       issued: document.getElementById('filter-jw-issued'),
+      opening: document.getElementById('filter-jw-opening'),
       cumulative: document.getElementById('filter-jw-cumulative'),
       unit: document.getElementById('filter-jw-unit'),
       excess: document.getElementById('filter-jw-excess'),
@@ -1247,6 +1248,7 @@
         'Client',
         'Required as per Job',
         'Issued Qty (In same unit as required)',
+        'Opening Issued',
         'Cumulative Issued',
         'Unit',
         'Excess/(Short)',
@@ -1265,6 +1267,7 @@
             r.clientName,
             r.requiredQty,
             r.issuedQty,
+            r.openingIssued,
             r.cumulativeIssued,
             r.unit,
             r.excessShort,
@@ -1957,7 +1960,7 @@
     }
   }
 
-  const JOBWISE_COLSPAN = 13;
+  const JOBWISE_COLSPAN = 14;
 
   function fmtDec(v, digits) {
     const d = digits == null ? 3 : digits;
@@ -1984,6 +1987,7 @@
       client: String(f.client?.value || '').trim().toLowerCase(),
       required: f.required?.value ?? '',
       issued: f.issued?.value ?? '',
+      opening: f.opening?.value ?? '',
       cumulative: f.cumulative?.value ?? '',
       unit: String(f.unit?.value || '').trim().toLowerCase(),
       excess: f.excess?.value ?? '',
@@ -2003,6 +2007,7 @@
       textIncludes(r.clientName, f.client) &&
       numMinPass(r.requiredQty, f.required) &&
       numMinPass(r.issuedQty, f.issued) &&
+      numMinPass(r.openingIssued, f.opening) &&
       numMinPass(r.cumulativeIssued, f.cumulative) &&
       textIncludes(r.unit, f.unit) &&
       numMinPass(r.excessShort, f.excess) &&
@@ -2020,36 +2025,44 @@
     const list = rows || [];
     let requiredQty = 0;
     let issuedQty = 0;
+    let openingIssued = 0;
     let cumulativeIssued = 0;
-    let excessShort = 0;
     let issuedCost = 0;
     let hasRequired = false;
+    let hasOpening = false;
     let hasCumulative = false;
 
     list.forEach((r) => {
       const req = num(r.requiredQty);
+      const open = num(r.openingIssued);
       const cum = num(r.cumulativeIssued);
       if (!hasRequired || req > requiredQty) {
         requiredQty = req;
         hasRequired = true;
+      }
+      if (!hasOpening || open > openingIssued) {
+        openingIssued = open;
+        hasOpening = true;
       }
       if (!hasCumulative || cum > cumulativeIssued) {
         cumulativeIssued = cum;
         hasCumulative = true;
       }
       issuedQty += num(r.issuedQty);
-      excessShort += num(r.excessShort);
       issuedCost += num(r.issuedCost);
     });
 
-    return { requiredQty, issuedQty, cumulativeIssued, excessShort, issuedCost };
+    // Group Excess/(Short) = MAX(Cumulative Issued) − MAX(Required as per Job)
+    const excessShort = cumulativeIssued - requiredQty;
+
+    return { requiredQty, issuedQty, openingIssued, cumulativeIssued, excessShort, issuedCost };
   }
 
-  /** Weighted Var % using MAX Required in the group: (Σ Issued − MAX Required) / MAX Required × 100 */
+  /** Group Var % from group Excess: Excess / MAX(Required) × 100 */
   function weightedJobwiseVarPct(rows) {
     const totals = sumJobwiseRows(rows);
     if (!totals.requiredQty) return null;
-    return ((totals.issuedQty - totals.requiredQty) / totals.requiredQty) * 100;
+    return (totals.excessShort / totals.requiredQty) * 100;
   }
 
   /**
@@ -2080,6 +2093,7 @@
         <td>${escapeHtml(r.clientName)}</td>
         <td class="numeric">${fmtDec(r.requiredQty)}</td>
         <td class="numeric">${fmtDec(r.issuedQty)}</td>
+        <td class="numeric">${fmtDec(r.openingIssued)}</td>
         <td class="numeric">${fmtDec(r.cumulativeIssued)}</td>
         <td>${escapeHtml(r.unit)}</td>
         <td class="numeric">${fmtDec(r.excessShort)}</td>
@@ -2108,6 +2122,7 @@
         ${labelCell}
         <td class="numeric">${fmtDec(totals.requiredQty)}</td>
         <td class="numeric">${fmtDec(totals.issuedQty)}</td>
+        <td class="numeric">${fmtDec(totals.openingIssued)}</td>
         <td class="numeric">${fmtDec(totals.cumulativeIssued)}</td>
         <td></td>
         <td class="numeric">${fmtDec(totals.excessShort)}</td>
