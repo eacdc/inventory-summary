@@ -56,6 +56,19 @@
         <p id="status" class="status"></p>
 
         <div id="itemwise-panel">
+          <div class="itemwise-toolbar">
+            <div class="ms-filter" id="itemwise-group-filter">
+              <span class="ms-filter-label">Item Group</span>
+              <button type="button" class="ms-toggle" id="itemwise-group-filter-btn" aria-haspopup="listbox" aria-expanded="false">All groups</button>
+              <div class="ms-panel hidden" id="itemwise-group-filter-panel" role="listbox" aria-multiselectable="true">
+                <div class="ms-actions">
+                  <button type="button" id="itemwise-group-select-all">Select all</button>
+                  <button type="button" id="itemwise-group-clear">Clear</button>
+                </div>
+                <div class="ms-list" id="itemwise-group-filter-list"></div>
+              </div>
+            </div>
+          </div>
           <div class="table-wrap table-scroll">
             <table class="data-table">
               <thead>
@@ -81,6 +94,16 @@
                   <td colspan="6" class="empty">Load to view inventory summary.</td>
                 </tr>
               </tbody>
+              <tfoot id="itemwise-tfoot">
+                <tr class="itemwise-total-row">
+                  <td></td>
+                  <td>Total</td>
+                  <td class="numeric" id="itemwise-total-opening">0</td>
+                  <td class="numeric" id="itemwise-total-in">0</td>
+                  <td class="numeric" id="itemwise-total-out">0</td>
+                  <td class="numeric" id="itemwise-total-closing">0</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

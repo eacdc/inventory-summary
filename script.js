@@ -1,7 +1,12 @@
 (function () {
   'use strict';
 
-  const isLocalHost = typeof window !== 'undefined' && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+  // file:// (double-click / start index.html) has an empty hostname — treat as local.
+  const isLocalHost =
+    typeof window !== 'undefined' &&
+    (window.location.protocol === 'file:' ||
+      !window.location.hostname ||
+      /localhost|127\.0\.0\.1|^::1$/i.test(window.location.hostname));
   const API_BASE = isLocalHost ? 'http://localhost:3001/api' : 'https://cdcapi.onrender.com/api';
 
   const els = {
@@ -51,6 +56,15 @@
       out: document.getElementById('filter-itemwise-out'),
       closing: document.getElementById('filter-itemwise-closing')
     },
+    itemwiseGroupFilterBtn: document.getElementById('itemwise-group-filter-btn'),
+    itemwiseGroupFilterPanel: document.getElementById('itemwise-group-filter-panel'),
+    itemwiseGroupFilterList: document.getElementById('itemwise-group-filter-list'),
+    itemwiseGroupSelectAll: document.getElementById('itemwise-group-select-all'),
+    itemwiseGroupClear: document.getElementById('itemwise-group-clear'),
+    itemwiseTotalOpening: document.getElementById('itemwise-total-opening'),
+    itemwiseTotalIn: document.getElementById('itemwise-total-in'),
+    itemwiseTotalOut: document.getElementById('itemwise-total-out'),
+    itemwiseTotalClosing: document.getElementById('itemwise-total-closing'),
     filterClient: {
       label: document.getElementById('filter-client-label'),
       opening: document.getElementById('filter-client-opening'),
@@ -106,6 +120,9 @@
   const expandedGroups = new Set();
   const expandedClientGroups = new Set();
   const expandedCategoryNodes = new Set();
+  /** Checked item groups in the multi-select; empty after Clear shows no groups. */
+  const itemwiseSelectedGroups = new Set();
+  let itemwiseAvailableGroups = [];
   /** All Tab Summary: numeric filter for the Aging column (days). */
   let allSummaryAgingFilter = { op: '', value: '' };
   let agingFilterPopoverEl = null;
@@ -469,8 +486,112 @@
       opening: fi.opening?.value ?? '',
       in: fi.in?.value ?? '',
       out: fi.out?.value ?? '',
-      closing: fi.closing?.value ?? ''
+      closing: fi.closing?.value ?? '',
+      groups: itemwiseSelectedGroups
     };
+  }
+
+  function itemwiseGroupAllowed(groupKey, f) {
+    const selected = f?.groups;
+    // Before first load: no available groups yet → allow through
+    if (!itemwiseAvailableGroups.length) return true;
+    if (!selected || selected.size === 0) return false;
+    return selected.has(String(groupKey || ''));
+  }
+
+  function updateItemwiseGroupFilterButtonLabel() {
+    const btn = els.itemwiseGroupFilterBtn;
+    if (!btn) return;
+    const total = itemwiseAvailableGroups.length;
+    const selected = itemwiseSelectedGroups.size;
+    if (!total) {
+      btn.textContent = 'All groups';
+      return;
+    }
+    if (selected === 0) {
+      btn.textContent = 'No groups';
+      return;
+    }
+    if (selected === total) {
+      btn.textContent = 'All groups';
+      return;
+    }
+    if (selected === 1) {
+      btn.textContent = [...itemwiseSelectedGroups][0];
+      return;
+    }
+    btn.textContent = `${selected} groups selected`;
+  }
+
+  function setItemwiseGroupFilterOpen(open) {
+    const panel = els.itemwiseGroupFilterPanel;
+    const btn = els.itemwiseGroupFilterBtn;
+    if (!panel || !btn) return;
+    panel.classList.toggle('hidden', !open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function populateItemwiseGroupFilter(rows) {
+    const groups = Array.from(
+      new Set((rows || []).map((r) => String(r.itemGroup || 'Unknown').trim() || 'Unknown'))
+    ).sort((a, b) => a.localeCompare(b));
+    itemwiseAvailableGroups = groups;
+
+    const prev = new Set(itemwiseSelectedGroups);
+    itemwiseSelectedGroups.clear();
+    if (groups.length) {
+      const keep = groups.filter((g) => prev.has(g));
+      // Fresh load or previous selection gone → select all; else keep intersection
+      (keep.length ? keep : groups).forEach((g) => itemwiseSelectedGroups.add(g));
+    }
+
+    const list = els.itemwiseGroupFilterList;
+    if (!list) return;
+    if (!groups.length) {
+      list.innerHTML = '<div class="ms-empty">No item groups loaded.</div>';
+      updateItemwiseGroupFilterButtonLabel();
+      return;
+    }
+
+    list.innerHTML = groups
+      .map((g) => {
+        const checked = itemwiseSelectedGroups.has(g);
+        return `<label class="ms-option">
+          <input type="checkbox" data-itemwise-group="${escapeHtml(g)}" ${checked ? 'checked' : ''}>
+          <span>${escapeHtml(g)}</span>
+        </label>`;
+      })
+      .join('');
+
+    updateItemwiseGroupFilterButtonLabel();
+  }
+
+  function syncItemwiseGroupSelectionFromDom() {
+    const list = els.itemwiseGroupFilterList;
+    if (!list) return;
+    itemwiseSelectedGroups.clear();
+    list.querySelectorAll('input[type="checkbox"][data-itemwise-group]').forEach((b) => {
+      if (b.checked) itemwiseSelectedGroups.add(String(b.getAttribute('data-itemwise-group') || ''));
+    });
+    updateItemwiseGroupFilterButtonLabel();
+  }
+
+  function setItemwiseGroupChecks(selectAll) {
+    const boxes = els.itemwiseGroupFilterList?.querySelectorAll('input[type="checkbox"][data-itemwise-group]');
+    itemwiseSelectedGroups.clear();
+    boxes?.forEach((b) => {
+      b.checked = !!selectAll;
+      if (selectAll) itemwiseSelectedGroups.add(String(b.getAttribute('data-itemwise-group') || ''));
+    });
+    updateItemwiseGroupFilterButtonLabel();
+  }
+
+  function setItemwiseTotals(totals) {
+    const t = totals || { opening: 0, inn: 0, out: 0, closing: 0 };
+    if (els.itemwiseTotalOpening) els.itemwiseTotalOpening.textContent = fmt(t.opening);
+    if (els.itemwiseTotalIn) els.itemwiseTotalIn.textContent = fmt(t.inn);
+    if (els.itemwiseTotalOut) els.itemwiseTotalOut.textContent = fmt(t.out);
+    if (els.itemwiseTotalClosing) els.itemwiseTotalClosing.textContent = fmt(t.closing);
   }
 
   function getClientFilterState() {
@@ -560,6 +681,7 @@
   function renderTable(rows) {
     if (!rows.length) {
       els.tableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
+      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0 });
       return;
     }
 
@@ -567,12 +689,18 @@
     const grouped = groupRows(rows);
     let html = '';
     let anyRow = false;
+    const grand = { opening: 0, inn: 0, out: 0, closing: 0 };
     grouped.forEach((g) => {
+      if (!itemwiseGroupAllowed(g.key, f)) return;
       const visibleItems = g.items.filter((r) => itemwiseItemMatches(r, g, f));
       if (visibleItems.length === 0) return;
       const totals = sumItemwiseItems(visibleItems);
       if (!itemwiseTotalsPass(totals, f)) return;
       anyRow = true;
+      grand.opening += totals.opening;
+      grand.inn += totals.inn;
+      grand.out += totals.out;
+      grand.closing += totals.closing;
       const expanded = expandedGroups.has(g.key);
       html += `
         <tr class="group-row">
@@ -601,9 +729,11 @@
     });
     if (!anyRow) {
       els.tableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
+      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0 });
       return;
     }
     els.tableBody.innerHTML = html;
+    setItemwiseTotals(grand);
 
     els.tableBody.querySelectorAll('.toggle-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1040,6 +1170,7 @@
     const grouped = groupRows(rows);
     const out = [];
     grouped.forEach((g) => {
+      if (!itemwiseGroupAllowed(g.key, f)) return;
       const visibleItems = g.items.filter((r) => itemwiseItemMatches(r, g, f));
       if (visibleItems.length === 0) return;
       const totals = sumItemwiseItems(visibleItems);
@@ -2307,10 +2438,12 @@
         throw new Error(data.error || `Request failed (${res.status})`);
       }
       currentRows = Array.isArray(data.records) ? data.records : [];
+      populateItemwiseGroupFilter(currentRows);
       renderTable(currentRows);
       setStatus(`Loaded ${currentRows.length} rows.`);
     } catch (e) {
       currentRows = [];
+      populateItemwiseGroupFilter([]);
       renderTable(currentRows);
       setStatus(e.message || 'Failed to load inventory summary.', true);
     } finally {
@@ -2593,6 +2726,31 @@
         if (activeTab === 'itemwise') renderTable(currentRows);
       });
     });
+
+    if (els.itemwiseGroupFilterBtn && els.itemwiseGroupFilterPanel) {
+      els.itemwiseGroupFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = els.itemwiseGroupFilterPanel.classList.contains('hidden');
+        setItemwiseGroupFilterOpen(open);
+      });
+      els.itemwiseGroupFilterPanel.addEventListener('click', (e) => e.stopPropagation());
+      els.itemwiseGroupFilterList?.addEventListener('change', (e) => {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement) || t.type !== 'checkbox') return;
+        syncItemwiseGroupSelectionFromDom();
+        if (activeTab === 'itemwise') renderTable(currentRows);
+      });
+      els.itemwiseGroupSelectAll?.addEventListener('click', () => {
+        setItemwiseGroupChecks(true);
+        if (activeTab === 'itemwise') renderTable(currentRows);
+      });
+      els.itemwiseGroupClear?.addEventListener('click', () => {
+        setItemwiseGroupChecks(false);
+        if (activeTab === 'itemwise') renderTable(currentRows);
+      });
+      document.addEventListener('click', () => setItemwiseGroupFilterOpen(false));
+    }
+
     clientInputs.forEach((el) => {
       el.addEventListener('input', () => {
         if (activeTab === 'clientwise') renderClientTable(currentClientRows);

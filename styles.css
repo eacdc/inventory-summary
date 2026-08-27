@@ -261,6 +261,136 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   font-weight: 600;
 }
 
+.itemwise-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ms-filter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ms-filter-label {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ms-toggle {
+  min-width: 180px;
+  max-width: 320px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-toggle:hover,
+.ms-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.ms-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 260px;
+  max-width: 360px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.ms-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ms-actions button {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: #0b1220;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ms-actions button:hover {
+  border-color: var(--accent);
+}
+
+.ms-list {
+  overflow: auto;
+  padding: 6px 0;
+  max-height: 260px;
+}
+
+.ms-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ms-option:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.ms-option input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.ms-option span {
+  word-break: break-word;
+}
+
+.ms-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#itemwise-panel .data-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: #1a2740;
+  border-top: 2px solid var(--accent);
+  font-weight: 700;
+}
+
+#itemwise-panel .data-table tr.itemwise-total-row td {
+  background: rgba(59, 130, 246, 0.2);
+}
+
 .toggle-btn {
   width: 24px;
   height: 24px;
