@@ -428,7 +428,9 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 
 #itemwise-panel .data-table tfoot td,
-#itemwise-panel .data-table tr.itemwise-total-row td {
+#itemwise-panel .data-table tr.itemwise-total-row td,
+#clientwise-panel .data-table tfoot td,
+#clientwise-panel .data-table tr.clientwise-total-row td {
   position: sticky;
   bottom: 0;
   z-index: 8;

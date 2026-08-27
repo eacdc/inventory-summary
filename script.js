@@ -65,6 +65,10 @@
     itemwiseTotalIn: document.getElementById('itemwise-total-in'),
     itemwiseTotalOut: document.getElementById('itemwise-total-out'),
     itemwiseTotalClosing: document.getElementById('itemwise-total-closing'),
+    clientwiseTotalOpening: document.getElementById('clientwise-total-opening'),
+    clientwiseTotalReceipt: document.getElementById('clientwise-total-receipt'),
+    clientwiseTotalIssue: document.getElementById('clientwise-total-issue'),
+    clientwiseTotalClosing: document.getElementById('clientwise-total-closing'),
     filterClient: {
       label: document.getElementById('filter-client-label'),
       opening: document.getElementById('filter-client-opening'),
@@ -594,6 +598,14 @@
     if (els.itemwiseTotalClosing) els.itemwiseTotalClosing.textContent = fmt(t.closing);
   }
 
+  function setClientwiseTotals(totals) {
+    const t = totals || { opening: 0, receipt: 0, issue: 0, closing: 0 };
+    if (els.clientwiseTotalOpening) els.clientwiseTotalOpening.textContent = fmt(t.opening);
+    if (els.clientwiseTotalReceipt) els.clientwiseTotalReceipt.textContent = fmt(t.receipt);
+    if (els.clientwiseTotalIssue) els.clientwiseTotalIssue.textContent = fmt(t.issue);
+    if (els.clientwiseTotalClosing) els.clientwiseTotalClosing.textContent = fmt(t.closing);
+  }
+
   function getClientFilterState() {
     const fi = els.filterClient;
     return {
@@ -749,18 +761,24 @@
   function renderClientTable(rows) {
     if (!rows.length) {
       els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
+      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0 });
       return;
     }
     const f = getClientFilterState();
     const grouped = groupClientRows(rows);
     let html = '';
     let anyRow = false;
+    const grand = { opening: 0, receipt: 0, issue: 0, closing: 0 };
     grouped.forEach((g) => {
       const visibleItems = g.items.filter((r) => clientItemMatches(r, g, f));
       if (visibleItems.length === 0) return;
       const totals = sumClientItems(visibleItems);
       if (!clientTotalsPass(totals, f)) return;
       anyRow = true;
+      grand.opening += totals.opening;
+      grand.receipt += totals.receipt;
+      grand.issue += totals.issue;
+      grand.closing += totals.closing;
       const expanded = expandedClientGroups.has(g.key);
       html += `
         <tr class="group-row">
@@ -789,9 +807,11 @@
     });
     if (!anyRow) {
       els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
+      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0 });
       return;
     }
     els.clientTableBody.innerHTML = html;
+    setClientwiseTotals(grand);
 
     els.clientTableBody.querySelectorAll('.toggle-btn-client').forEach((btn) => {
       btn.addEventListener('click', () => {
