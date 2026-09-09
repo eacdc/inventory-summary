@@ -54,7 +54,8 @@
       opening: document.getElementById('filter-itemwise-opening'),
       in: document.getElementById('filter-itemwise-in'),
       out: document.getElementById('filter-itemwise-out'),
-      closing: document.getElementById('filter-itemwise-closing')
+      closing: document.getElementById('filter-itemwise-closing'),
+      incoming: document.getElementById('filter-itemwise-incoming')
     },
     itemwiseGroupFilterBtn: document.getElementById('itemwise-group-filter-btn'),
     itemwiseGroupFilterPanel: document.getElementById('itemwise-group-filter-panel'),
@@ -65,16 +66,19 @@
     itemwiseTotalIn: document.getElementById('itemwise-total-in'),
     itemwiseTotalOut: document.getElementById('itemwise-total-out'),
     itemwiseTotalClosing: document.getElementById('itemwise-total-closing'),
+    itemwiseTotalIncoming: document.getElementById('itemwise-total-incoming'),
     clientwiseTotalOpening: document.getElementById('clientwise-total-opening'),
     clientwiseTotalReceipt: document.getElementById('clientwise-total-receipt'),
     clientwiseTotalIssue: document.getElementById('clientwise-total-issue'),
     clientwiseTotalClosing: document.getElementById('clientwise-total-closing'),
+    clientwiseTotalIncoming: document.getElementById('clientwise-total-incoming'),
     filterClient: {
       label: document.getElementById('filter-client-label'),
       opening: document.getElementById('filter-client-opening'),
       receipt: document.getElementById('filter-client-receipt'),
       issue: document.getElementById('filter-client-issue'),
-      closing: document.getElementById('filter-client-closing')
+      closing: document.getElementById('filter-client-closing'),
+      incoming: document.getElementById('filter-client-incoming')
     },
     filterPo: {
       pono: document.getElementById('filter-po-pono'),
@@ -465,9 +469,10 @@
         opening: acc.opening + num(r.openingKg),
         inn: acc.inn + num(r.stockInKg),
         out: acc.out + num(r.stockOutKg),
-        closing: acc.closing + num(r.closingKg)
+        closing: acc.closing + num(r.closingKg),
+        incoming: acc.incoming + num(r.incomingKg)
       }),
-      { opening: 0, inn: 0, out: 0, closing: 0 }
+      { opening: 0, inn: 0, out: 0, closing: 0, incoming: 0 }
     );
   }
 
@@ -477,9 +482,10 @@
         opening: acc.opening + num(r.openingStockKg),
         receipt: acc.receipt + num(r.receiptKg),
         issue: acc.issue + num(r.issueKg),
-        closing: acc.closing + num(r.closingStockKg)
+        closing: acc.closing + num(r.closingStockKg),
+        incoming: acc.incoming + num(r.incomingStockKg)
       }),
-      { opening: 0, receipt: 0, issue: 0, closing: 0 }
+      { opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 }
     );
   }
 
@@ -491,6 +497,7 @@
       in: fi.in?.value ?? '',
       out: fi.out?.value ?? '',
       closing: fi.closing?.value ?? '',
+      incoming: fi.incoming?.value ?? '',
       groups: itemwiseSelectedGroups
     };
   }
@@ -591,19 +598,21 @@
   }
 
   function setItemwiseTotals(totals) {
-    const t = totals || { opening: 0, inn: 0, out: 0, closing: 0 };
+    const t = totals || { opening: 0, inn: 0, out: 0, closing: 0, incoming: 0 };
     if (els.itemwiseTotalOpening) els.itemwiseTotalOpening.textContent = fmt(t.opening);
     if (els.itemwiseTotalIn) els.itemwiseTotalIn.textContent = fmt(t.inn);
     if (els.itemwiseTotalOut) els.itemwiseTotalOut.textContent = fmt(t.out);
     if (els.itemwiseTotalClosing) els.itemwiseTotalClosing.textContent = fmt(t.closing);
+    if (els.itemwiseTotalIncoming) els.itemwiseTotalIncoming.textContent = fmt(t.incoming);
   }
 
   function setClientwiseTotals(totals) {
-    const t = totals || { opening: 0, receipt: 0, issue: 0, closing: 0 };
+    const t = totals || { opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 };
     if (els.clientwiseTotalOpening) els.clientwiseTotalOpening.textContent = fmt(t.opening);
     if (els.clientwiseTotalReceipt) els.clientwiseTotalReceipt.textContent = fmt(t.receipt);
     if (els.clientwiseTotalIssue) els.clientwiseTotalIssue.textContent = fmt(t.issue);
     if (els.clientwiseTotalClosing) els.clientwiseTotalClosing.textContent = fmt(t.closing);
+    if (els.clientwiseTotalIncoming) els.clientwiseTotalIncoming.textContent = fmt(t.incoming);
   }
 
   function getClientFilterState() {
@@ -613,7 +622,8 @@
       opening: fi.opening?.value ?? '',
       receipt: fi.receipt?.value ?? '',
       issue: fi.issue?.value ?? '',
-      closing: fi.closing?.value ?? ''
+      closing: fi.closing?.value ?? '',
+      incoming: fi.incoming?.value ?? ''
     };
   }
 
@@ -626,7 +636,8 @@
       numMinPass(r.openingKg, f.opening) &&
       numMinPass(r.stockInKg, f.in) &&
       numMinPass(r.stockOutKg, f.out) &&
-      numMinPass(r.closingKg, f.closing)
+      numMinPass(r.closingKg, f.closing) &&
+      numMinPass(r.incomingKg, f.incoming)
     );
   }
 
@@ -635,7 +646,8 @@
       numMinPass(totals.opening, f.opening) &&
       numMinPass(totals.inn, f.in) &&
       numMinPass(totals.out, f.out) &&
-      numMinPass(totals.closing, f.closing)
+      numMinPass(totals.closing, f.closing) &&
+      numMinPass(totals.incoming, f.incoming)
     );
   }
 
@@ -648,7 +660,8 @@
       numMinPass(r.openingStockKg, f.opening) &&
       numMinPass(r.receiptKg, f.receipt) &&
       numMinPass(r.issueKg, f.issue) &&
-      numMinPass(r.closingStockKg, f.closing)
+      numMinPass(r.closingStockKg, f.closing) &&
+      numMinPass(r.incomingStockKg, f.incoming)
     );
   }
 
@@ -657,7 +670,8 @@
       numMinPass(totals.opening, f.opening) &&
       numMinPass(totals.receipt, f.receipt) &&
       numMinPass(totals.issue, f.issue) &&
-      numMinPass(totals.closing, f.closing)
+      numMinPass(totals.closing, f.closing) &&
+      numMinPass(totals.incoming, f.incoming)
     );
   }
 
@@ -674,7 +688,7 @@
     rows.forEach((r) => {
       const key = String(r.itemGroup || 'Unknown');
       if (!map.has(key)) {
-        map.set(key, { key, items: [], opening: 0, in: 0, out: 0, closing: 0 });
+        map.set(key, { key, items: [], opening: 0, in: 0, out: 0, closing: 0, incoming: 0 });
       }
       const g = map.get(key);
       g.items.push(r);
@@ -682,6 +696,7 @@
       g.in += num(r.stockInKg);
       g.out += num(r.stockOutKg);
       g.closing += num(r.closingKg);
+      g.incoming += num(r.incomingKg);
     });
     const grouped = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
     grouped.forEach((g) => {
@@ -692,8 +707,8 @@
 
   function renderTable(rows) {
     if (!rows.length) {
-      els.tableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
-      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0 });
+      els.tableBody.innerHTML = '<tr><td colspan="7" class="empty">No records found.</td></tr>';
+      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0, incoming: 0 });
       return;
     }
 
@@ -701,7 +716,7 @@
     const grouped = groupRows(rows);
     let html = '';
     let anyRow = false;
-    const grand = { opening: 0, inn: 0, out: 0, closing: 0 };
+    const grand = { opening: 0, inn: 0, out: 0, closing: 0, incoming: 0 };
     grouped.forEach((g) => {
       if (!itemwiseGroupAllowed(g.key, f)) return;
       const visibleItems = g.items.filter((r) => itemwiseItemMatches(r, g, f));
@@ -713,6 +728,7 @@
       grand.inn += totals.inn;
       grand.out += totals.out;
       grand.closing += totals.closing;
+      grand.incoming += totals.incoming;
       const expanded = expandedGroups.has(g.key);
       html += `
         <tr class="group-row">
@@ -722,6 +738,7 @@
           <td class="numeric">${fmt(totals.inn)}</td>
           <td class="numeric">${fmt(totals.out)}</td>
           <td class="numeric">${fmt(totals.closing)}</td>
+          <td class="numeric">${fmt(totals.incoming)}</td>
         </tr>
       `;
       if (expanded) {
@@ -734,14 +751,15 @@
               <td class="numeric">${fmt(r.stockInKg)}</td>
               <td class="numeric">${fmt(r.stockOutKg)}</td>
               <td class="numeric">${fmt(r.closingKg)}</td>
+              <td class="numeric">${fmt(r.incomingKg)}</td>
             </tr>
           `;
         });
       }
     });
     if (!anyRow) {
-      els.tableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
-      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0 });
+      els.tableBody.innerHTML = '<tr><td colspan="7" class="empty">No rows match filters.</td></tr>';
+      setItemwiseTotals({ opening: 0, inn: 0, out: 0, closing: 0, incoming: 0 });
       return;
     }
     els.tableBody.innerHTML = html;
@@ -760,15 +778,15 @@
 
   function renderClientTable(rows) {
     if (!rows.length) {
-      els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No records found.</td></tr>';
-      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0 });
+      els.clientTableBody.innerHTML = '<tr><td colspan="7" class="empty">No records found.</td></tr>';
+      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 });
       return;
     }
     const f = getClientFilterState();
     const grouped = groupClientRows(rows);
     let html = '';
     let anyRow = false;
-    const grand = { opening: 0, receipt: 0, issue: 0, closing: 0 };
+    const grand = { opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 };
     grouped.forEach((g) => {
       const visibleItems = g.items.filter((r) => clientItemMatches(r, g, f));
       if (visibleItems.length === 0) return;
@@ -779,6 +797,7 @@
       grand.receipt += totals.receipt;
       grand.issue += totals.issue;
       grand.closing += totals.closing;
+      grand.incoming += totals.incoming;
       const expanded = expandedClientGroups.has(g.key);
       html += `
         <tr class="group-row">
@@ -788,6 +807,7 @@
           <td class="numeric">${fmt(totals.receipt)}</td>
           <td class="numeric">${fmt(totals.issue)}</td>
           <td class="numeric">${fmt(totals.closing)}</td>
+          <td class="numeric">${fmt(totals.incoming)}</td>
         </tr>
       `;
       if (expanded) {
@@ -800,14 +820,15 @@
               <td class="numeric">${fmt(r.receiptKg)}</td>
               <td class="numeric">${fmt(r.issueKg)}</td>
               <td class="numeric">${fmt(r.closingStockKg)}</td>
+              <td class="numeric">${fmt(r.incomingStockKg)}</td>
             </tr>
           `;
         });
       }
     });
     if (!anyRow) {
-      els.clientTableBody.innerHTML = '<tr><td colspan="6" class="empty">No rows match filters.</td></tr>';
-      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0 });
+      els.clientTableBody.innerHTML = '<tr><td colspan="7" class="empty">No rows match filters.</td></tr>';
+      setClientwiseTotals({ opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 });
       return;
     }
     els.clientTableBody.innerHTML = html;
@@ -1202,7 +1223,8 @@
           openingKg: r.openingKg,
           stockInKg: r.stockInKg,
           stockOutKg: r.stockOutKg,
-          closingKg: r.closingKg
+          closingKg: r.closingKg,
+          incomingKg: r.incomingKg
         });
       });
     });
@@ -1226,7 +1248,8 @@
           openingStockKg: r.openingStockKg,
           receiptKg: r.receiptKg,
           issueKg: r.issueKg,
-          closingStockKg: r.closingStockKg
+          closingStockKg: r.closingStockKg,
+          incomingStockKg: r.incomingStockKg
         });
       });
     });
@@ -1243,11 +1266,11 @@
         setStatus('No rows to export.', true);
         return;
       }
-      const header = ['Item Group', 'Item Name', 'Opening (KG)', 'Stock In (KG)', 'Stock Out (KG)', 'Closing (KG)'];
+      const header = ['Item Group', 'Item Name', 'Opening (KG)', 'Stock In (KG)', 'Stock Out (KG)', 'Closing (KG)', 'Incoming (KG)'];
       const lines = [header.map(toCsvCell).join(',')];
       rows.forEach((r) => {
         lines.push(
-          [r.itemGroup, r.itemName, r.openingKg, r.stockInKg, r.stockOutKg, r.closingKg].map(toCsvCell).join(',')
+          [r.itemGroup, r.itemName, r.openingKg, r.stockInKg, r.stockOutKg, r.closingKg, r.incomingKg].map(toCsvCell).join(',')
         );
       });
       downloadCsvFile(`inventory-itemwise-${db}-${dateStr}.csv`, lines.join('\r\n'));
@@ -1261,11 +1284,11 @@
         setStatus('No rows to export.', true);
         return;
       }
-      const header = ['Client', 'Item Name', 'Opening (KG)', 'Receipt (KG)', 'Issue (KG)', 'Closing (KG)'];
+      const header = ['Client', 'Item Name', 'Opening (KG)', 'Receipt (KG)', 'Issue (KG)', 'Closing (KG)', 'Incoming (KG)'];
       const lines = [header.map(toCsvCell).join(',')];
       rows.forEach((r) => {
         lines.push(
-          [r.clientName, r.itemName, r.openingStockKg, r.receiptKg, r.issueKg, r.closingStockKg].map(toCsvCell).join(',')
+          [r.clientName, r.itemName, r.openingStockKg, r.receiptKg, r.issueKg, r.closingStockKg, r.incomingStockKg].map(toCsvCell).join(',')
         );
       });
       downloadCsvFile(`inventory-clientwise-${db}-${dateStr}.csv`, lines.join('\r\n'));
@@ -1583,7 +1606,7 @@
     rows.forEach((r) => {
       const key = String(r.clientName || 'Unknown Client');
       if (!map.has(key)) {
-        map.set(key, { key, items: [], opening: 0, receipt: 0, issue: 0, closing: 0 });
+        map.set(key, { key, items: [], opening: 0, receipt: 0, issue: 0, closing: 0, incoming: 0 });
       }
       const g = map.get(key);
       g.items.push(r);
@@ -1591,6 +1614,7 @@
       g.receipt += num(r.receiptKg);
       g.issue += num(r.issueKg);
       g.closing += num(r.closingStockKg);
+      g.incoming += num(r.incomingStockKg);
     });
     const grouped = Array.from(map.values()).sort((a, b) => {
       const byClosing = num(b.closing) - num(a.closing);

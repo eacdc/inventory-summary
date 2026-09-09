@@ -79,6 +79,7 @@
                   <th class="sticky-header">In</th>
                   <th class="sticky-header">Out</th>
                   <th class="sticky-header">Closing</th>
+                  <th class="sticky-header">Incoming</th>
                 </tr>
                 <tr class="filter-row">
                   <th class="sticky-filter"></th>
@@ -87,11 +88,12 @@
                   <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-in" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                   <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-out" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                   <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-closing" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-itemwise-incoming" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                 </tr>
               </thead>
               <tbody id="table-body">
                 <tr>
-                  <td colspan="6" class="empty">Load to view inventory summary.</td>
+                  <td colspan="7" class="empty">Load to view inventory summary.</td>
                 </tr>
               </tbody>
               <tfoot id="itemwise-tfoot">
@@ -102,6 +104,7 @@
                   <td class="numeric" id="itemwise-total-in">0</td>
                   <td class="numeric" id="itemwise-total-out">0</td>
                   <td class="numeric" id="itemwise-total-closing">0</td>
+                  <td class="numeric" id="itemwise-total-incoming">0</td>
                 </tr>
               </tfoot>
             </table>
@@ -119,6 +122,7 @@
                   <th class="sticky-header">Receipt</th>
                   <th class="sticky-header">Issue</th>
                   <th class="sticky-header">Closing</th>
+                  <th class="sticky-header">Incoming</th>
                 </tr>
                 <tr class="filter-row">
                   <th class="sticky-filter"></th>
@@ -127,11 +131,12 @@
                   <th class="sticky-filter"><input type="number" step="1" id="filter-client-receipt" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                   <th class="sticky-filter"><input type="number" step="1" id="filter-client-issue" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                   <th class="sticky-filter"><input type="number" step="1" id="filter-client-closing" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
+                  <th class="sticky-filter"><input type="number" step="1" id="filter-client-incoming" class="filter-input filter-num" placeholder="Min" inputmode="numeric"></th>
                 </tr>
               </thead>
               <tbody id="client-table-body">
                 <tr>
-                  <td colspan="6" class="empty">Load to view clientwise stock movement.</td>
+                  <td colspan="7" class="empty">Load to view clientwise stock movement.</td>
                 </tr>
               </tbody>
               <tfoot id="clientwise-tfoot">
@@ -142,6 +147,7 @@
                   <td class="numeric" id="clientwise-total-receipt">0</td>
                   <td class="numeric" id="clientwise-total-issue">0</td>
                   <td class="numeric" id="clientwise-total-closing">0</td>
+                  <td class="numeric" id="clientwise-total-incoming">0</td>
                 </tr>
               </tfoot>
             </table>
