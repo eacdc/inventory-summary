@@ -922,3 +922,45 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
   border-color: #dc2626;
   color: #450a0a;
 }
+
+
+/* Daily Closing: fixed-size grid, first three columns frozen */
+.table-wrap.daily-closing-scroll {
+  height: calc(100vh - 320px);
+  min-height: 320px;
+  width: 100%;
+  overflow: auto;
+}
+
+.data-table.daily-closing-table {
+  width: max-content;
+  table-layout: fixed;
+}
+
+.daily-closing-table th,
+.daily-closing-table td { white-space: nowrap; word-break: normal; }
+
+.daily-closing-table .dc-col-id,
+.daily-closing-table .dc-col-code,
+.daily-closing-table .dc-col-name {
+  position: sticky;
+  z-index: 2;
+  text-align: left;
+}
+.daily-closing-table th.dc-col-id,
+.daily-closing-table th.dc-col-code,
+.daily-closing-table th.dc-col-name { z-index: 6; }
+
+.daily-closing-table .dc-col-id { left: 0; width: 70px; min-width: 70px; max-width: 70px; }
+.daily-closing-table .dc-col-code { left: 70px; width: 90px; min-width: 90px; max-width: 90px; }
+.daily-closing-table .dc-col-name {
+  left: 160px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: inset -1px 0 0 var(--border);
+}
+.daily-closing-table .dc-col-date { width: 110px; min-width: 110px; text-align: right; }
+.daily-closing-table th.dc-col-date { text-align: center; }

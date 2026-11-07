@@ -17,6 +17,10 @@
     tabStockBuffer: document.getElementById('tab-stock-buffer'),
     tabCategorywise: document.getElementById('tab-categorywise'),
     tabJobwise: document.getElementById('tab-jobwise'),
+    tabDailyClosing: document.getElementById('tab-daily-closing'),
+    dailyClosingPanel: document.getElementById('daily-closing-panel'),
+    dailyClosingHead: document.getElementById('daily-closing-head'),
+    dailyClosingBody: document.getElementById('daily-closing-body'),
     itemwisePanel: document.getElementById('itemwise-panel'),
     clientwisePanel: document.getElementById('clientwise-panel'),
     poPanel: document.getElementById('po-noclient-panel'),
@@ -108,6 +112,7 @@
   };
 
   let activeTab = 'itemwise';
+  let dailyClosingData = { dates: [], records: [] };
   let currentRows = [];
   let currentClientRows = [];
   let currentPoRows = [];
@@ -184,6 +189,7 @@
     const isStockBuffer = which === 'stock-buffer';
     const isCategorywise = which === 'categorywise';
     const isJobwise = which === 'jobwise';
+    const isDailyClosing = which === 'daily-closing';
 
     if (isItemwise) activeTab = 'itemwise';
     else if (isClientwise) activeTab = 'clientwise';
@@ -192,6 +198,7 @@
     else if (isStockBuffer) activeTab = 'stock-buffer';
     else if (isCategorywise) activeTab = 'categorywise';
     else if (isJobwise) activeTab = 'jobwise';
+    else if (isDailyClosing) activeTab = 'daily-closing';
     else activeTab = 'itemwise';
 
     if (els.tabItemwise) els.tabItemwise.classList.toggle('active', isItemwise);
@@ -201,6 +208,7 @@
     if (els.tabStockBuffer) els.tabStockBuffer.classList.toggle('active', isStockBuffer);
     if (els.tabCategorywise) els.tabCategorywise.classList.toggle('active', isCategorywise);
     if (els.tabJobwise) els.tabJobwise.classList.toggle('active', isJobwise);
+    if (els.tabDailyClosing) els.tabDailyClosing.classList.toggle('active', isDailyClosing);
 
     if (els.itemwisePanel) els.itemwisePanel.classList.toggle('hidden', !isItemwise);
     if (els.clientwisePanel) els.clientwisePanel.classList.toggle('hidden', !isClientwise);
@@ -209,10 +217,11 @@
     if (els.stockBufferPanel) els.stockBufferPanel.classList.toggle('hidden', !isStockBuffer);
     if (els.categorywisePanel) els.categorywisePanel.classList.toggle('hidden', !isCategorywise);
     if (els.jobwisePanel) els.jobwisePanel.classList.toggle('hidden', !isJobwise);
+    if (els.dailyClosingPanel) els.dailyClosingPanel.classList.toggle('hidden', !isDailyClosing);
 
     if (els.btnLoad) els.btnLoad.classList.toggle('hidden', isStockBuffer);
 
-    toggleDateFilters(isItemwise || isClientwise || isPo || isCategorywise || isJobwise);
+    toggleDateFilters(isItemwise || isClientwise || isPo || isCategorywise || isJobwise || isDailyClosing);
     updateAllSummaryPresetToolbar();
   }
 
@@ -1407,6 +1416,22 @@
       return;
     }
 
+    if (activeTab === 'daily-closing') {
+      const { dates, records } = dailyClosingData;
+      if (!records.length) {
+        setStatus('No rows to export.', true);
+        return;
+      }
+      const header = ['Item ID', 'Item Code', 'Item Name', ...dates.map(formatClosingDateHeader)];
+      const lines = [header.map(toCsvCell).join(',')];
+      records.forEach((r) => {
+        lines.push([r.itemId, r.itemCode, r.itemName, ...r.closing].map(toCsvCell).join(','));
+      });
+      downloadCsvFile(`inventory-daily-closing-${db}-${dates[0]}-to-${dates[dates.length - 1]}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${records.length} row(s) (daily closing).`);
+      return;
+    }
+
     if (activeTab === 'jobwise') {
       const rows = getFilteredJobwiseRows();
       if (!rows.length) {
@@ -2453,6 +2478,89 @@
     }
   }
 
+  // "2026-10-01" -> "1st Oct (Thu)"
+  function formatClosingDateHeader(ymd) {
+    const date = new Date(`${ymd}T00:00:00Z`);
+    const day = date.getUTCDate();
+    const tens = day % 100;
+    const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] || 'th');
+    const month = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+    const weekday = date.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
+    return `${day}${suffix} ${month} (${weekday})`;
+  }
+
+  function renderDailyClosingTable() {
+    const { dates, records } = dailyClosingData;
+    const frozenHead = [
+      ['Item ID', 'dc-col-id'],
+      ['Item Code', 'dc-col-code'],
+      ['Item Name', 'dc-col-name']
+    ].map(([label, cls]) => `<th class="sticky-header ${cls}">${label}</th>`);
+    const dateHead = dates.map((d) => `<th class="sticky-header dc-col-date">${escapeHtml(formatClosingDateHeader(d))}</th>`);
+    els.dailyClosingHead.innerHTML = `<tr>${frozenHead.concat(dateHead).join('')}</tr>`;
+
+    if (!records.length) {
+      els.dailyClosingBody.innerHTML = `<tr><td colspan="${dates.length + 3}" class="empty">No items for the selected dates.</td></tr>`;
+      return;
+    }
+
+    const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+    els.dailyClosingBody.innerHTML = records.map((r) => {
+      const cells = r.closing.map((v) => `<td class="numeric dc-col-date">${fmt.format(v)}</td>`).join('');
+      const name = escapeHtml(r.itemName);
+      return `<tr><td class="dc-col-id">${escapeHtml(r.itemId)}</td><td class="dc-col-code">${escapeHtml(r.itemCode)}</td><td class="dc-col-name" title="${name}">${name}</td>${cells}</tr>`;
+    }).join('');
+  }
+
+  async function loadDailyClosing() {
+    const fromDate = String(els.fromDate.value || '').trim();
+    const toDate = String(els.toDate.value || '').trim();
+    if (!fromDate || !toDate) {
+      setStatus('Please select both from and to date.', true);
+      return;
+    }
+    if (fromDate > toDate) {
+      setStatus('From date cannot be after to date.', true);
+      return;
+    }
+    const dayCount = Math.round((Date.parse(`${toDate}T00:00:00Z`) - Date.parse(`${fromDate}T00:00:00Z`)) / 86400000) + 1;
+    if (dayCount > 30) {
+      setStatus(`Date range can be at most 30 days (selected ${dayCount}).`, true);
+      return;
+    }
+
+    setStatus('Loading...');
+    els.btnLoad.disabled = true;
+    try {
+      const url = new URL(`${API_BASE}/inventory-summary/closing-by-date`);
+      url.searchParams.set('database', els.database.value || 'KOL');
+      url.searchParams.set('fromDate', fromDate);
+      url.searchParams.set('toDate', toDate);
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== true) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+
+      dailyClosingData = {
+        dates: Array.isArray(data.dates) ? data.dates : [],
+        records: Array.isArray(data.records) ? data.records : []
+      };
+      renderDailyClosingTable();
+      setStatus(`Loaded ${dailyClosingData.records.length} item(s) across ${dailyClosingData.dates.length} day(s). Closing in KG.`);
+    } catch (e) {
+      dailyClosingData = { dates: [], records: [] };
+      renderDailyClosingTable();
+      setStatus(e.message || 'Failed to load daily closing.', true);
+    } finally {
+      els.btnLoad.disabled = false;
+    }
+  }
+
   async function loadItemwise() {
     const fromDate = String(els.fromDate.value || '').trim();
     const toDate = String(els.toDate.value || '').trim();
@@ -2712,6 +2820,11 @@
       loadJobwiseIssued();
     });
   }
+  if (els.tabDailyClosing) {
+    els.tabDailyClosing.addEventListener('click', () => {
+      setTab('daily-closing');
+    });
+  }
   if (els.jobwiseGroupBar) {
     els.jobwiseGroupBar.addEventListener('click', (e) => {
       const btn = e.target.closest('.jobwise-group-btn');
@@ -2739,6 +2852,7 @@
     if (activeTab === 'all-summary') return loadAllTabSummary();
     if (activeTab === 'categorywise') return loadCategorywiseIssued();
     if (activeTab === 'jobwise') return loadJobwiseIssued();
+    if (activeTab === 'daily-closing') return loadDailyClosing();
     if (activeTab === 'stock-buffer') return;
     return loadItemwise();
   });
