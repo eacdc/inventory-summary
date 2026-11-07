@@ -964,3 +964,8 @@ button { cursor: pointer; background: #1d4ed8; border-color: #1d4ed8; }
 }
 .daily-closing-table .dc-col-date { width: 110px; min-width: 110px; text-align: right; }
 .daily-closing-table th.dc-col-date { text-align: center; }
+
+.daily-closing-table .dc-col-label { display: block; margin-bottom: 4px; }
+.daily-closing-table th .filter-input { width: 100%; min-width: 0; }
+.daily-closing-table .dc-up { color: #4ade80; }
+.daily-closing-table .dc-down { color: #f87171; }

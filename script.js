@@ -113,6 +113,7 @@
 
   let activeTab = 'itemwise';
   let dailyClosingData = { dates: [], records: [] };
+  const dailyClosingFilters = { itemId: '', itemCode: '', itemName: '' };
   let currentRows = [];
   let currentClientRows = [];
   let currentPoRows = [];
@@ -1417,7 +1418,8 @@
     }
 
     if (activeTab === 'daily-closing') {
-      const { dates, records } = dailyClosingData;
+      const { dates } = dailyClosingData;
+      const records = getFilteredDailyClosingRecords();
       if (!records.length) {
         setStatus('No rows to export.', true);
         return;
@@ -2489,24 +2491,46 @@
     return `${day}${suffix} ${month} (${weekday})`;
   }
 
+  function getFilteredDailyClosingRecords() {
+    const active = Object.keys(dailyClosingFilters)
+      .map((key) => [key, dailyClosingFilters[key].trim().toLowerCase()])
+      .filter(([, query]) => query);
+    return dailyClosingData.records.filter((r) =>
+      active.every(([key, query]) => String(r[key] ?? '').toLowerCase().includes(query))
+    );
+  }
+
   function renderDailyClosingTable() {
-    const { dates, records } = dailyClosingData;
+    const { dates } = dailyClosingData;
     const frozenHead = [
-      ['Item ID', 'dc-col-id'],
-      ['Item Code', 'dc-col-code'],
-      ['Item Name', 'dc-col-name']
-    ].map(([label, cls]) => `<th class="sticky-header ${cls}">${label}</th>`);
+      ['Item ID', 'dc-col-id', 'itemId'],
+      ['Item Code', 'dc-col-code', 'itemCode'],
+      ['Item Name', 'dc-col-name', 'itemName']
+    ].map(([label, cls, key]) => `<th class="sticky-header ${cls}"><span class="dc-col-label">${label}</span><input type="search" class="filter-input filter-text" data-dc-filter="${key}" value="${escapeHtml(dailyClosingFilters[key])}" placeholder="Filter…" aria-label="Filter ${label}" autocomplete="off"></th>`);
     const dateHead = dates.map((d) => `<th class="sticky-header dc-col-date">${escapeHtml(formatClosingDateHeader(d))}</th>`);
     els.dailyClosingHead.innerHTML = `<tr>${frozenHead.concat(dateHead).join('')}</tr>`;
+    renderDailyClosingBody();
+  }
 
+  function renderDailyClosingBody() {
+    const { dates } = dailyClosingData;
+    const records = getFilteredDailyClosingRecords();
     if (!records.length) {
-      els.dailyClosingBody.innerHTML = `<tr><td colspan="${dates.length + 3}" class="empty">No items for the selected dates.</td></tr>`;
+      const message = dailyClosingData.records.length ? 'No items match the filters.' : 'No items for the selected dates.';
+      els.dailyClosingBody.innerHTML = `<tr><td colspan="${dates.length + 3}" class="empty">${message}</td></tr>`;
       return;
     }
 
     const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
     els.dailyClosingBody.innerHTML = records.map((r) => {
-      const cells = r.closing.map((v) => `<td class="numeric dc-col-date">${fmt.format(v)}</td>`).join('');
+      const cells = r.closing.map((v, i) => {
+        // Closing is rounded to 3 decimals, so smaller differences are float noise
+        const diff = i > 0 ? v - r.closing[i - 1] : 0;
+        let arrow = '';
+        if (diff > 0.0005) arrow = '<span class="dc-up" title="Increased from previous date">▲</span> ';
+        else if (diff < -0.0005) arrow = '<span class="dc-down" title="Decreased from previous date">▼</span> ';
+        return `<td class="numeric dc-col-date">${arrow}${fmt.format(v)}</td>`;
+      }).join('');
       const name = escapeHtml(r.itemName);
       return `<tr><td class="dc-col-id">${escapeHtml(r.itemId)}</td><td class="dc-col-code">${escapeHtml(r.itemCode)}</td><td class="dc-col-name" title="${name}">${name}</td>${cells}</tr>`;
     }).join('');
@@ -2818,6 +2842,15 @@
     els.tabJobwise.addEventListener('click', () => {
       setTab('jobwise');
       loadJobwiseIssued();
+    });
+  }
+  if (els.dailyClosingHead) {
+    els.dailyClosingHead.addEventListener('input', (e) => {
+      const key = e.target.getAttribute('data-dc-filter');
+      if (!key) return;
+      dailyClosingFilters[key] = e.target.value;
+      renderDailyClosingBody();
+      setStatus(`Showing ${getFilteredDailyClosingRecords().length} of ${dailyClosingData.records.length} item(s). Closing in KG.`);
     });
   }
   if (els.tabDailyClosing) {
