@@ -1424,13 +1424,10 @@
         setStatus('No rows to export.', true);
         return;
       }
-      const header = ['Item ID', 'Item Code', 'Item Name', ...dates.map(formatClosingDateHeader)];
-      const lines = [header.map(toCsvCell).join(',')];
-      records.forEach((r) => {
-        lines.push([r.itemId, r.itemCode, r.itemName, ...r.closing].map(toCsvCell).join(','));
+      exportDailyClosingXlsx(db, dates, records).catch((err) => {
+        console.error('Daily closing export error:', err);
+        setStatus(`Export failed: ${err?.message || err}`, true);
       });
-      downloadCsvFile(`inventory-daily-closing-${db}-${dates[0]}-to-${dates[dates.length - 1]}.csv`, lines.join('\r\n'));
-      setStatus(`Exported ${records.length} row(s) (daily closing).`);
       return;
     }
 
@@ -2512,6 +2509,15 @@
     renderDailyClosingBody();
   }
 
+  // 1 = up, -1 = down, 0 = same as previous date (or first date)
+  function closingTrend(closing, i) {
+    // Closing is rounded to 3 decimals, so smaller differences are float noise
+    const diff = i > 0 ? closing[i] - closing[i - 1] : 0;
+    if (diff > 0.0005) return 1;
+    if (diff < -0.0005) return -1;
+    return 0;
+  }
+
   function renderDailyClosingBody() {
     const { dates } = dailyClosingData;
     const records = getFilteredDailyClosingRecords();
@@ -2524,16 +2530,99 @@
     const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
     els.dailyClosingBody.innerHTML = records.map((r) => {
       const cells = r.closing.map((v, i) => {
-        // Closing is rounded to 3 decimals, so smaller differences are float noise
-        const diff = i > 0 ? v - r.closing[i - 1] : 0;
+        const trend = closingTrend(r.closing, i);
         let arrow = '';
-        if (diff > 0.0005) arrow = '<span class="dc-up" title="Increased from previous date">▲</span> ';
-        else if (diff < -0.0005) arrow = '<span class="dc-down" title="Decreased from previous date">▼</span> ';
+        if (trend > 0) arrow = '<span class="dc-up" title="Increased from previous date">▲</span> ';
+        else if (trend < 0) arrow = '<span class="dc-down" title="Decreased from previous date">▼</span> ';
         return `<td class="numeric dc-col-date">${arrow}${fmt.format(v)}</td>`;
       }).join('');
       const name = escapeHtml(r.itemName);
       return `<tr><td class="dc-col-id">${escapeHtml(r.itemId)}</td><td class="dc-col-code">${escapeHtml(r.itemCode)}</td><td class="dc-col-name" title="${name}">${name}</td>${cells}</tr>`;
     }).join('');
+  }
+
+  const EXCELJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+  let excelJsPromise = null;
+
+  // Loaded on first export only, so the page itself stays light
+  function loadExcelJs() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (!excelJsPromise) {
+      excelJsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = EXCELJS_URL;
+        script.onload = () => (window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('ExcelJS missing')));
+        script.onerror = () => reject(new Error('Could not load ExcelJS'));
+        document.head.appendChild(script);
+      }).catch((err) => {
+        excelJsPromise = null;
+        throw err;
+      });
+    }
+    return excelJsPromise;
+  }
+
+  // Excel's Good / Bad styles; the arrow lives in the number format so cells stay numeric
+  const DC_TREND_STYLE = {
+    1: { fill: 'FFC6EFCE', font: 'FF006100', numFmt: '"▲ "#,##0.00' },
+    '-1': { fill: 'FFFFC7CE', font: 'FF9C0006', numFmt: '"▼ "#,##0.00' }
+  };
+
+  async function exportDailyClosingXlsx(db, dates, records) {
+    const fileBase = `inventory-daily-closing-${db}-${dates[0]}-to-${dates[dates.length - 1]}`;
+    const header = ['Item ID', 'Item Code', 'Item Name', ...dates.map(formatClosingDateHeader)];
+    setStatus('Preparing Excel...');
+    let ExcelJS;
+    try {
+      ExcelJS = await loadExcelJs();
+    } catch (err) {
+      // Fall back to the plain CSV so the export still works offline
+      const lines = [header.map(toCsvCell).join(',')];
+      records.forEach((r) => {
+        lines.push([r.itemId, r.itemCode, r.itemName, ...r.closing].map(toCsvCell).join(','));
+      });
+      downloadCsvFile(`${fileBase}.csv`, lines.join('\r\n'));
+      setStatus(`Exported ${records.length} row(s) as CSV without colors (Excel library could not load).`, true);
+      return;
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Daily Closing', { views: [{ state: 'frozen', xSplit: 3, ySplit: 1 }] });
+    ws.columns = [
+      { width: 10 },
+      { width: 12 },
+      { width: 50 },
+      ...dates.map(() => ({ width: 16 }))
+    ];
+    const headRow = ws.addRow(header);
+    headRow.font = { bold: true };
+    headRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    records.forEach((r) => {
+      const row = ws.addRow([r.itemId, r.itemCode, r.itemName, ...r.closing.map((v) => Number(v) || 0)]);
+      r.closing.forEach((v, i) => {
+        const cell = row.getCell(i + 4);
+        const style = DC_TREND_STYLE[closingTrend(r.closing, i)];
+        cell.numFmt = style ? style.numFmt : '#,##0.00';
+        if (style) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.fill } };
+          cell.font = { color: { argb: style.font } };
+        }
+      });
+    });
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileBase}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus(`Exported ${records.length} row(s) (daily closing).`);
   }
 
   async function loadDailyClosing() {
